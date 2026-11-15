@@ -180,6 +180,7 @@ export class Worker {
             await update((_s, r) => r.steps.push({ id: uid('step'), kind: 'prompt', name: 'instructions', note: ag.instructions || 'Read the board and respect workspace safety rules.', status: 'done' }));
             let tokens = 0, calls = 0, correctedDrawingDenial = false, successfulWrites = 0, writeAttempts = 0, correctedFailedWrite = false, unresolvedWriteError = false;
             let lastInvalidWrite = '', repeatedInvalidWrites = 0;
+            const versions: Record<string, number> = Object.create(null);
             const tokenBudget = Number(process.env.RUN_MAX_TOKENS || 120000);
             let nextToolChoice: ModelOptions['toolChoice'] = { type: 'function', function: { name: 'read_board' } };
             while (calls < 20) {
@@ -247,7 +248,6 @@ export class Worker {
                                 const live = s.agents.find(x => x.id === ag.id)!;
                                 const auth = { ...aa, agent: live, scopes: live.scopes };
                                 scope(auth);
-                                const versions = Object.fromEntries(Object.entries(s.boards[run.boardId]?.elements ?? {}).map(([id, element]) => [id, element.version]));
                                 if (!tools.some(t => t.function.name === name)) {
                                     if (name === 'search_knowledge')
                                         requireAbility(auth, 'knowledge');
@@ -274,7 +274,18 @@ export class Worker {
                                 }
                                 return value;
                             });
-                        if (name === 'write_board') { successfulWrites++; unresolvedWriteError = false; }
+                        // Infer missing versions only from data this model actually observed.
+                        if (name === 'read_board' && !output.error) {
+                            for (const element of Object.values(output.elements ?? {}) as any[]) versions[element.id] = element.version;
+                            for (const match of String(output.text ?? '').matchAll(/^- \[([^\] ]+) v(\d+)\]/gm)) versions[match[1]] = Number(match[2]);
+                        }
+                        if (name === 'write_board') {
+                            for (const receipt of output.results) {
+                                if (receipt.version === null) delete versions[receipt.id];
+                                else versions[receipt.id] = receipt.version;
+                            }
+                            successfulWrites++; unresolvedWriteError = false;
+                        }
                         await update((_s, r) => { const step = r.steps.find(x => x.id === stepId)!; step.status = 'done'; step.note = 'Completed successfully.'; });
                     }
                     catch (e) {

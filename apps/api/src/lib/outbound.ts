@@ -4,11 +4,11 @@ import { isIP } from 'node:net';
 import { fail } from './errors';
 export function publicAddress(address: string) {
     if (isIP(address) === 4) {
-        const [a, b] = address.split('.').map(Number);
-        return !(a === 0 || a === 10 || a === 127 || a === 169 && b === 254 || a === 172 && b >= 16 && b <= 31 || a === 192 && b === 168 || a >= 224 || a === 100 && b >= 64 && b <= 127 || a === 198 && (b === 18 || b === 19));
+        const [a, b, c] = address.split('.').map(Number);
+        return !(a === 0 || a === 10 || a === 127 || a === 169 && b === 254 || a === 172 && b >= 16 && b <= 31 || a === 192 && (b === 168 || b === 0 && (c === 0 || c === 2) || b === 88 && c === 99) || a === 198 && b === 51 && c === 100 || a === 203 && b === 0 && c === 113 || a >= 224 || a === 100 && b >= 64 && b <= 127 || a === 198 && (b === 18 || b === 19));
     }
     if (isIP(address) === 6)
-        return !/^(::|fc|fd|fe[89ab]|ff)/i.test(address);
+        return /^[23][0-9a-f]{3}:/i.test(address) && !/^2002:/i.test(address) && !/^2001:(?:0{0,3}[0-9a-f]{1,2}|0?db8):/i.test(address) && !/^3fff:/i.test(address);
     return false;
 }
 export async function validateUrl(value: string) {
@@ -30,6 +30,8 @@ export async function safePost(value: string, body: unknown, headers: Record<str
                 reject(new Error('External service refused the request. Redirects are disabled.'));
                 return;
             }
+            res.on('error', reject);
+            res.on('aborted', () => reject(new Error('External response was interrupted.')));
             const chunks: Buffer[] = [];
             let size = 0;
             res.on('data', chunk => {
@@ -61,6 +63,8 @@ export async function safePost(value: string, body: unknown, headers: Record<str
                 }
             });
         });
+        const deadline = setTimeout(() => req.destroy(new Error('External request timed out.')), 10000);
+        req.on('close', () => clearTimeout(deadline));
         req.on('timeout', () => req.destroy(new Error('External request timed out.')));
         req.on('error', reject);
         req.end(payload);

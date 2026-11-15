@@ -23,7 +23,7 @@
   <em>Follow a flow from the first step to the last. Arrows, a live mockup, and a sketch stay together, so the path and the thing being built are the same picture.</em>
 </p>
 
-Ask for an explanation in ordinary language. An agent builds it on the board: a 3D model you can turn, a mockup you can click through, or a sketch you can keep editing by hand. People and agents write through the same operations, so a change from either side is a normal edit on a shared canvas.
+Ask for an explanation in ordinary language. An agent builds it on the board: a 3D model you can turn, a mockup you can inspect and refine, or a sketch you can keep editing by hand. People and agents write through the same operations, so a change from either side is a normal edit on a shared canvas.
 
 ## What you can make
 
@@ -114,3 +114,8 @@ Seed creates an owner, a Planner agent, and a starter board. The agent key is pr
 - [Design mockups](docs/EMBED-UPDATE.md) — sandboxed HTML and CSS
 - [Drawing](docs/DRAWING-UPDATE.md) — ink, abilities, and the toolbar
 - [Implementation status](docs/IMPLEMENTATION.md) — what this build does and does not claim
+
+## Contributing and license
+
+See [CONTRIBUTING.md](CONTRIBUTING.md), [security guidance](SECURITY.md), and the
+[verification report](docs/TEST-REPORT.md). Licensed under [MIT](LICENSE).

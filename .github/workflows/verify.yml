@@ -1,0 +1,38 @@
+name: Verify
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: agentboard
+          POSTGRES_PASSWORD: test-only-password
+          POSTGRES_DB: agentboard_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U agentboard -d agentboard_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://agentboard:test-only-password@localhost:5432/agentboard_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Require the integration database
+        run: node --input-type=module -e 'import pg from "pg"; const c = new pg.Client({connectionString:process.env.DATABASE_URL}); await c.connect(); await c.query("select 1"); await c.end();'
+      - run: npm run verify
+      - run: git diff --exit-code -- packages/contract
+      - run: npx playwright install --with-deps chromium
+      - name: Desktop and phone browser flows
+        run: npm run test:e2e -- --grep-invert 'real OpenAI'
+        env:
+          DATABASE_URL: ''

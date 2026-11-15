@@ -1,39 +1,42 @@
-# Staged verification
+# Verification report
 
-Build session: 2026-11-14, macOS restricted workspace. Commands use Node 22.23.4. Results distinguish executed tests from authored tests that could not run.
+Reviewed November 14, 2026 with Node 22.23.4. This report distinguishes local
+checks, earlier user-host browser results, and checks still awaiting execution.
 
-| Gate | Checks | Result |
-| --- | --- | --- |
-| 1 — Scaffold and contract | Boundary schemas, four element types, bounds, unsupported sections/order, agent defaults, fixtures | Passed |
-| 2 — Core service | Rollback, simultaneous stale writers, idempotent retry/body mismatch, arrow cascade/integrity, restacking, guarded undo, scopes, allowlists, digest clipping/budget | Passed against serialized local adapter; not PostgreSQL |
-| 3 — HTTP service routes | Signup/invites/member permissions, Origin checks, board create/rename/trash/restore, hashed/revoked keys, REST/MCP permissions, claims, knowledge, settings, activity | Passed via direct transport dispatcher; no network socket |
-| 4 — Board engine | Immutable optimistic overlay, duplicate/gap handling, explicit resync | Passed |
-| 5 — Worker | Ordered injected-model tool loop, agent attribution, claim cleanup, read-only behavior, forbidden tool results, interrupted/queued recovery, multi-batch run undo | Passed with fake model, not a live provider |
-| 6 — Security/integrations | Public address filtering, scheme/credential rejection, salted password checks, persistence rollback/restart, AES-GCM, preserving/rotating secrets, signed webhook callbacks and run undo | Passed; outbound calls mocked for integration tests |
-| 7 — React DOM integration | Create account, connect agent/one-time key UI, all five routes against actual service dispatcher, new board, open/close chat | Passed in jsdom; not visual browser verification |
-| 8 — Static checks/delivery | TypeScript, contract generation, production Vite build | Passed |
-| 9 — Real browser | Auth/navigation/board edit/color/delete/undo/trash/restore on desktop and phone | Playwright suite authored; blocked, not passed |
-| 10 — Real infrastructure | Docker/PostgreSQL, live network/WS and provider/external service checks | Blocked, not passed |
+| Check | Evidence |
+| --- | --- |
+| TypeScript | Passed `npm run typecheck` |
+| Shared contracts | Passed `npm run contract:generate` |
+| Unit and service integration tests | 305 passed; 1 PostgreSQL check skipped because no database was reachable |
+| Production bundle | Passed `npm run build`; lazy Three.js bundle remains above Vite's 500 kB advisory threshold |
+| Desktop and phone Playwright | Earlier user-host run passed all 11 fixture checks; current restricted environment cannot bind the test server |
+| Live OpenAI browser flow | Latest supplied run failed on generated 3D part versions and exhausted its budget; subsequent fixes have deterministic regression coverage, but a successful live rerun has not been recorded |
+| PostgreSQL and multi-process behavior | Tests exist; not verified against live infrastructure in this review |
+| Public source review | Credential-pattern scan of all 165 existing history blobs found no matches; private environment, workspace and report files are excluded |
 
-The latest executable test count is recorded in `reports/verification.log` after `npm run verify`.
+The final review added regressions for live authorization expiry/removal/key
+rotation/scope loss and for a human edit arriving between an agent's read and
+write. Missing agent versions are inferred only from observed reads and write
+receipts, preserving optimistic concurrency. Socket messages have a small
+payload cap and heartbeat; outbound service addresses reject reserved ranges.
+These checks are useful evidence, not a claim of a comprehensive security audit.
 
-## Observed environment blockers
+CI runs clean dependency installation, contract checks, the test suite against
+a disposable PostgreSQL service, a production build, and desktop/phone browser
+fixtures. CI has been added; its remote result must be checked after publication.
+It never receives a provider key. Live provider tests require an explicit local
+key and incur usage.
 
-- Registry access: `Could not resolve host: registry.npmjs.org` / `ENOTFOUND`. Dependencies were recovered from existing installed packages and the local npm cache. Fresh networked installation was not verified.
-- Docker: permission denied accessing `/Users/jmpumuro/.docker/run/docker.sock`.
-- Native PostgreSQL: `initdb` failed at `shmget`: “Operation not permitted.” No actual PostgreSQL test was passed.
-- Local server: `listen EPERM 127.0.0.1:4173`. No running localhost preview could be provided from this sandbox.
-- Chromium: process startup failed at macOS `bootstrap_check_in ... MachPortRendezvousServer: Permission denied`. Screenshots and Playwright assertions did not run.
-
-## Follow-up commands on an unrestricted host
+To reproduce on an unrestricted host:
 
 ```sh
-nvm use
-npm install
+npm ci
 npm run verify
 npx playwright install chromium
 npm run test:e2e
-docker compose up --build
+npm run test:live # optional, requires an OpenAI key
 ```
 
-The production architecture gaps in `IMPLEMENTATION.md` must be addressed before claiming all kit acceptance checks pass. Docker definitions and the PostgreSQL adapter are supplied but not validated in this session.
+Set `DATABASE_URL` to a disposable PostgreSQL database to enable database tests.
+Local logs, auth state, screenshots and traces remain under ignored directories;
+they are not public release artifacts. See `SECURITY.md` for deployment limits.

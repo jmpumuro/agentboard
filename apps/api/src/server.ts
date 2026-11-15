@@ -1,3 +1,4 @@
+import { liveAccess, type LiveIdentity } from './services/live-access';
 import { staticWeb } from './lib/static-web';
 import { renderBoard } from './render/board-png';
 import * as c from 'contract';
@@ -28,10 +29,12 @@ export function createApp(store: Store, options: {
     model?: Model;
 } = {}) {
     const origin = options.origin ?? process.env.WEB_ORIGIN ?? 'http://localhost:4173';
-    const wss = new WebSocketServer({ noServer: true });
+    const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });
     const clients = new Map<WebSocket, {
         boardId: string;
         auth: core.Auth;
+        identity: LiveIdentity;
+        alive: boolean;
         cursor: {
             x: number;
             y: number;
@@ -63,30 +66,32 @@ export function createApp(store: Store, options: {
         else if (ws.readyState === WebSocket.OPEN)
             ws.send(JSON.stringify(msg));
     };
-    const resyncBoard = (boardId?: string) => {
+    function authorize(ws: WebSocket, client: (typeof clients extends Map<any, infer V> ? V : never), state: State) {
+        const auth = liveAccess(state, client.identity, client.boardId);
+        if (!auth) { clients.delete(ws); ws.close(1008, 'Access ended'); return false; }
+        client.auth = auth;
+        return true;
+    }
+    const resyncBoard = async (boardId?: string) => {
+        const state = await store.read();
         for (const [ws, client] of clients)
-            if (!boardId || client.boardId === boardId)
+            if ((!boardId || client.boardId === boardId) && authorize(ws, client, state))
                 send(ws, { t: 'resync' });
     };
     const boardListen = process.env.DATABASE_URL
         ? listenBoardOps(process.env.DATABASE_URL, {
-            onNotify: boardId => resyncBoard(boardId),
-            onReconnect: () => resyncBoard()
+            onNotify: boardId => { void resyncBoard(boardId).catch(() => {}); },
+            onReconnect: () => { void resyncBoard().catch(() => {}); }
         })
         : undefined;
     async function broadcast(id: string) {
         const s = await store.read();
         const b = s.boards[id];
-        if (!b)
-            return;
+
         for (const [ws, client] of clients) {
             if (client.boardId !== id)
                 continue;
-            const ag = client.auth.agent && s.agents.find(a => a.id === client.auth.agent!.id);
-            if (b.board.deletedAt || ag && (ag.status === 'revoked' || ag.boardIds && !ag.boardIds.includes(id))) {
-                ws.close(1008, 'Access ended');
-                continue;
-            }
+            if (!authorize(ws, client, s) || !b) continue;
             for (const batch of b.batches.filter(x => x.seq > client.lastSeq)) {
                 send(ws, batchMessage(batch));
                 client.lastSeq = batch.seq;
@@ -602,15 +607,21 @@ export function createApp(store: Store, options: {
             const s = await store.read(), auth = core.resolve(s, token, sid), b = core.board(s, auth, id);
             wss.handleUpgrade(req, socket, head, ws => {
                 const since = Number(url.searchParams.get('sinceSeq') || 0), gap = b.board.seq - since;
-                clients.set(ws, { boardId: id, auth, cursor: null, lastSeq: b.board.seq, lastRun: '', claims: b.claims.map(c => c.id) });
+                clients.set(ws, { boardId: id, auth, identity: token ? { keyHash: core.hash(token) } : { sessionHash: core.hash(sid!) }, alive: true, cursor: null, lastSeq: b.board.seq, lastRun: '', claims: b.claims.map(c => c.id) });
                 if (gap > 500 || since > b.board.seq || gap > b.batches.length)
                     send(ws, { t: 'resync' });
                 else
                     for (const batch of b.batches.filter(x => x.seq > since))
                         send(ws, batchMessage(batch));
+                for (const [other, client] of clients) if (client.boardId === id) authorize(other, client, s);
                 send(ws, { t: 'hello', seq: b.board.seq, presence: [...clients.values()].filter(c => c.boardId === id).map(c => ({ actor: c.auth.actor, cursor: c.cursor })), claims: b.claims });
-                ws.on('message', buffer => {
+                ws.on('pong', () => { const client = clients.get(ws); if (client) client.alive = true; });
+                ws.on('error', () => {});
+                ws.on('message', async buffer => {
                     try {
+                        const state = await store.read();
+                        for (const [other, client] of clients) if (client.boardId === id) authorize(other, client, state);
+                        if (!clients.has(ws)) return;
                         const msg = c.ClientMsgSchema.parse(JSON.parse(buffer.toString()));
                         if (msg.t === 'cursor') {
                             clients.get(ws)!.cursor = { x: msg.x, y: msg.y };
@@ -621,7 +632,14 @@ export function createApp(store: Store, options: {
                     }
                     catch { }
                 });
-                ws.on('close', () => clients.delete(ws));
+                ws.on('close', () => {
+                    clients.delete(ws);
+                    void store.read().then(state => {
+                        for (const [other, client] of clients) if (client.boardId === id) authorize(other, client, state);
+                        const presence = [...clients.values()].filter(client => client.boardId === id).map(client => ({ actor: client.auth.actor, cursor: client.cursor }));
+                        for (const [other, client] of clients) if (client.boardId === id) send(other, { t: 'presence', presence });
+                    }).catch(() => {});
+                });
             });
         }
         catch {
@@ -629,7 +647,16 @@ export function createApp(store: Store, options: {
             socket.destroy();
         }
     });
+    const heartbeat = setInterval(() => {
+        for (const [ws, client] of clients) {
+            if (!client.alive) { clients.delete(ws); ws.terminate(); continue; }
+            client.alive = false; ws.ping();
+        }
+    }, 30000);
+    heartbeat.unref();
     const sweeper = setInterval(async () => {
+        try {
+        for (const [key, value] of limits) if (value.end <= Date.now()) limits.delete(key);
         await store.transaction(s => {
             for (const b of Object.values(s.boards))
                 b.claims = b.claims.filter(c => Date.parse(c.expiresAt) > Date.now());
@@ -642,10 +669,12 @@ export function createApp(store: Store, options: {
         });
         for (const id of new Set([...clients.values()].map(x => x.boardId)))
             await broadcast(id);
+        } catch (error) { console.error('Workspace maintenance failed:', (error as Error).message); }
     }, 5000);
     sweeper.unref();
     return { handle, server, worker, broadcast, async close() {
             clearInterval(sweeper);
+            clearInterval(heartbeat);
             await boardListen?.close();
             await worker.stop();
             for (const ws of clients.keys())

@@ -7,3 +7,12 @@ test-results/
 reports/
 
 .web-build-*/
+
+.env.*
+!.env.example
+.DS_Store
+coverage/
+blob-report/
+.nyc_output/
+*.log
+*.tsbuildinfo
