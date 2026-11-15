@@ -1,0 +1,9 @@
+{
+  "name": "web",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ../../tsconfig.json",
+    "build": "vite build",
+    "test": "cd ../.. && vitest run tests/engine.test.ts tests/drawing-engine.test.ts tests/ui.test.ts tests/toolbar.test.ts tests/theme.test.ts tests/theme-contrast.test.ts tests/embed-ui.test.ts"
+  }
+}

@@ -1,0 +1,5 @@
+// Hostile embed HTML is stored verbatim; the browser sandbox and CSP provide isolation.
+export const EMBED_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; sandbox";
+export const EMBED_META_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; base-uri 'none'; form-action 'none'";
+export function embedDocument(html: string) { return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="${EMBED_META_CSP}"></head><body>${html}</body></html>`; }
+export const STARTER_EMBED = { type: 'embed' as const, x: 0, y: 0, w: 360, h: 240, text: 'New HTML mockup', html: '<style>body{margin:0;padding:24px;font:15px system-ui;color:#20321e;background:#f5f7ef}h1{font-size:24px;margin:0 0 12px}.button{display:inline-block;background:#285b43;color:white;padding:10px 18px;border-radius:8px}</style><h1>A new idea</h1><p>Build a self-contained mockup with HTML and CSS.</p><span class="button">Get started</span>' };

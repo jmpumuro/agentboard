@@ -1,0 +1,31 @@
+import { it, expect } from 'vitest';
+import { applyLive, overlay, overlayBatches } from '../apps/web/src/board-engine';
+const state = { seq: 1, order: [], elements: [] };
+const note = (id: string, text: string, x = 0) => ({ op: 'create' as const, id, data: { type: 'note' as const, x, y: 0, w: 200, h: 150, text, color: 'yellow' as const } });
+it('ignores duplicate live messages and asks to resync gaps', () => { expect(applyLive(state, { t: 'ops', seq: 1, actor: { kind: 'user', id: 'u', name: 'A' }, ops: [], order: [] }).state).toBe(state); expect(applyLive(state, { t: 'ops', seq: 3, actor: { kind: 'user', id: 'u', name: 'A' }, ops: [], order: [] }).resync).toBe(true); });
+it('pending overlay does not mutate confirmed state and can be dropped', () => { const optimistic = overlay(state, [{ op: 'create', id: 'a', data: { type: 'note', x: 0, y: 0, w: 200, h: 150, text: 'draft', color: 'yellow' } }]); expect(optimistic.elements).toHaveLength(1); expect(state.elements).toHaveLength(0); expect(applyLive(state, { t: 'resync' }).resync).toBe(true); });
+it('stacks pending batches in order on the confirmed snapshot', () => {
+    const first = [note('a', 'first')];
+    const second = [note('b', 'second'), { op: 'update' as const, id: 'a', ifVersion: 1, data: { text: 'first-edited' } }];
+    const drawn = overlayBatches(state, [first, second]);
+    expect(drawn.order).toEqual(['a', 'b']);
+    expect(drawn.elements.map(element => element.id)).toEqual(['a', 'b']);
+    expect(drawn.elements[0]).toMatchObject({ text: 'first-edited' });
+    const oneBatch = overlayBatches(state, [first]);
+    const direct = overlay(state, first);
+    expect(oneBatch.order).toEqual(direct.order);
+    expect(oneBatch.elements.map(({ updatedAt: _at, ...element }) => element)).toEqual(direct.elements.map(({ updatedAt: _at, ...element }) => element));
+    expect(state.elements).toHaveLength(0);
+    expect(applyLive(state, { t: 'ops', seq: 2, actor: { kind: 'user', id: 'u', name: 'A' }, ops: [], order: [] }).state.elements).toHaveLength(0);
+});
+it('dropping the second pending batch keeps the first', () => {
+    const first = [note('a', 'first')];
+    const second = [note('b', 'second')];
+    const batches = [first, second];
+    expect(overlayBatches(state, batches).elements.map(element => element.id)).toEqual(['a', 'b']);
+    const kept = overlayBatches(state, batches.filter((_, index) => index !== 1));
+    expect(kept.elements.map(element => element.id)).toEqual(['a']);
+    expect(kept.elements[0]).toMatchObject({ text: 'first' });
+    expect(state.elements).toHaveLength(0);
+    expect(state.order).toEqual([]);
+});

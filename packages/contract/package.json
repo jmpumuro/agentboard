@@ -1,0 +1,13 @@
+{
+  "name": "contract",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./scene3d": "./src/scene3d/geometry.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ../../tsconfig.json",
+    "test": "vitest run ../../tests/contract.test.ts",
+    "build:openapi": "tsx generate.ts"
+  }
+}

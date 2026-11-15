@@ -1,0 +1,1667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>AgentBoard prototype</title>
+<style>
+:root{
+  --bg:#f5f4ef;--panel:#ffffff;--ink:#1e1d1a;--muted:#6c6a63;--line:#e2dfd6;
+  --accent:#2c5f52;--accent-soft:#e2efe9;--agent:#b5532a;--agent-soft:#f8e7df;--danger:#a23b3b;
+  --yellow:#fbe8a0;--blue:#cfe1f6;--green:#cdebd5;--pink:#f8d3de;--purple:#e2d6f5;--white:#eeece6;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#191917;--panel:#232320;--ink:#eeece6;--muted:#a3a097;--line:#383732;
+  --accent:#7cc0ad;--accent-soft:#263a35;--agent:#e58a63;--agent-soft:#3d2a22;--danger:#e07a7a;
+  --yellow:#6d5f1f;--blue:#274463;--green:#25503a;--pink:#6a3345;--purple:#463766;--white:#3a3934;
+}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink);display:flex;overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+button:disabled{opacity:.45;cursor:default}
+.side{width:216px;flex:none;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:16px 10px}
+.brand{font-weight:700;font-size:17px;padding:4px 10px 16px}
+.brand span{color:var(--agent)}
+.nav{display:flex;flex-direction:column;gap:2px;flex:1}
+.nav a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;color:var(--muted);text-decoration:none;font-weight:500}
+.nav a svg{width:18px;height:18px;flex:none}
+.nav a:hover{background:var(--bg)}
+.nav a.on{background:var(--accent-soft);color:var(--accent)}
+.me{display:flex;align-items:center;gap:8px;padding:10px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+.proto{font-size:11.5px;color:var(--muted);padding:8px 10px}
+.brand{display:flex;align-items:center;gap:10px;white-space:nowrap}
+.brand .logo{width:28px;height:28px;border-radius:8px;background:var(--agent);color:#fff;display:grid;place-items:center;font-style:normal;font-size:15px;flex:none;margin-left:-4px}
+.me .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.anon .side{display:none}
+.anon .main{margin-left:0 !important}
+.auth{max-width:380px;margin:6vh auto 0;padding:26px}
+.auth h1{margin:14px 0 4px}
+.auth .btn{width:100%;margin-top:14px;padding:10px}
+.auth .alt{display:block;text-align:center;margin-top:14px;font-size:13.5px;color:var(--accent);background:none;border:0;width:100%}
+input[type=password],input[type=email]{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:8px 10px;width:100%}
+.reply.bad{color:var(--danger)}
+@media (min-width:760px){
+  /* Side nav: an icon rail that expands over the page on hover or keyboard focus. */
+  .side{position:fixed;left:0;top:0;bottom:0;width:60px;z-index:15;overflow:hidden;transition:width .16s ease,box-shadow .16s ease}
+  .side:hover,.side:focus-within{width:216px;box-shadow:8px 0 28px rgba(0,0,0,.14)}
+  .main{margin-left:60px}
+  .side .brand b,.side .nav a span,.side .me .nm{opacity:0;transition:opacity .12s ease;white-space:nowrap}
+  .side:hover .brand b,.side:hover .nav a span,.side:hover .me .nm,.side:focus-within .brand b,.side:focus-within .nav a span,.side:focus-within .me .nm{opacity:1}
+  .side .proto{display:none}
+  .side:hover .proto,.side:focus-within .proto{display:block}
+  .side .nav a{padding:9px 11px}
+  .side .me{padding:10px 8px}
+}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;height:100%;position:relative}
+.ctb{position:absolute;right:14px;bottom:14px;z-index:6;border:1px solid var(--line);background:var(--panel);border-radius:99px;padding:6px 12px;font-size:12.5px;font-weight:600;color:var(--muted);box-shadow:0 2px 10px rgba(0,0,0,.1)}
+.ctb:hover{color:var(--accent);border-color:var(--accent)}
+.onboard .ctb{right:auto;left:12px;bottom:auto;top:62px}
+@media (min-width:760px){.onboard .ctb{top:auto;bottom:14px}}
+.view{flex:1;overflow:auto;padding:24px 28px 40px}
+.view.flush{padding:0;display:flex;flex-direction:column;overflow:hidden}
+h1{font-size:22px;margin:0}
+.head{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+.head p{margin:2px 0 0;color:var(--muted);font-size:14px}
+.grow{flex:1;min-width:0}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:7px 12px;font-weight:500;white-space:nowrap}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+.btn.agentb{background:var(--agent);border-color:var(--agent);color:#fff}
+.btn.danger{color:var(--danger)}
+.btn.sm{padding:4px 9px;font-size:13px}
+.btn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px}
+.av{width:24px;height:24px;border-radius:50%;display:inline-grid;place-items:center;font-size:11px;font-weight:700;background:var(--accent-soft);color:var(--accent);border:2px solid var(--panel);margin-left:-6px;flex:none}
+.av:first-child{margin-left:0}
+.av.agent{background:var(--agent-soft);color:var(--agent);border-radius:7px}
+.av.live{box-shadow:0 0 0 2px var(--agent)}
+.tag{font-size:12px;padding:2px 8px;border-radius:99px;background:var(--bg);color:var(--muted);border:1px solid var(--line);white-space:nowrap}
+.tag.ok{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.tag.off{color:var(--danger)}
+.muted{color:var(--muted)}
+/* boards */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+.bcard{overflow:hidden;cursor:pointer}
+.bcard:hover{border-color:var(--accent)}
+.thumb{height:104px;background:var(--bg);border-bottom:1px solid var(--line);position:relative;overflow:hidden}
+.thumb i{position:absolute;border-radius:2px}
+.bmeta{padding:12px 14px;display:flex;align-items:center;gap:8px}
+.bmeta b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bmeta small{color:var(--muted)}
+/* board */
+.bar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line)}
+.cv{flex:1;min-width:0;position:relative;display:flex}
+.dock{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);display:flex;gap:2px;align-items:center;background:var(--ink);color:var(--bg);border-radius:16px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.28);z-index:7;max-width:calc(100% - 10px)}
+.dock button{width:40px;height:40px;border:0;background:none;color:inherit;border-radius:11px;display:grid;place-items:center;flex:none;padding:0}
+.dock button svg{width:21px;height:21px}
+.dock button.on{background:color-mix(in srgb,var(--bg) 24%,transparent)}
+.dock .sep{width:1px;height:24px;background:color-mix(in srgb,var(--bg) 30%,transparent);margin:0 3px;flex:none}
+.dock .ag{width:auto;padding:0 12px;font-weight:600;font-size:14.5px}
+.zoomc{position:absolute;top:10px;right:10px;display:flex;align-items:center;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:4px;z-index:7;box-shadow:0 2px 10px rgba(0,0,0,.08)}
+.zoomc .btn{border-color:transparent;background:none;padding:4px 8px}
+.zoomc .sep{width:1px;height:20px;background:var(--line);margin:0 3px}
+.zoomc .zl{font-size:13px;font-weight:600;min-width:44px;text-align:center}
+.bar .title{font-weight:650;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:none;border:0;padding:4px 6px;border-radius:6px;text-align:left}
+.bar .title:hover{background:var(--bg)}
+.bar input.title{border:1px solid var(--accent);background:var(--panel);min-width:0}
+.stage{flex:1;display:flex;min-height:0;position:relative}
+.vp{flex:1;min-width:0;overflow:hidden;position:relative;touch-action:none;cursor:default;background-color:var(--bg);background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:40px 40px}
+.vp.placing{cursor:crosshair}
+.vp.hand{cursor:grab}
+.surface{position:absolute;left:0;top:0;transform-origin:0 0}
+.el{position:absolute;user-select:none;-webkit-user-select:none;outline:2px solid transparent;outline-offset:2px}
+.el.sel{outline-color:var(--accent)}
+.el .txt{white-space:pre-wrap;overflow-wrap:anywhere;outline:none}
+.el.editing .txt{user-select:text;-webkit-user-select:text;cursor:text}
+.el.note,.el.shape{display:flex;align-items:center;justify-content:center;text-align:center;padding:8px 12px;font-size:14.5px;cursor:pointer}
+.el.note{border-radius:10px;box-shadow:0 1px 2px rgba(0,0,0,.1)}
+.el.shape .bg{position:absolute;inset:0;z-index:0}
+.el.shape .txt,.el.note .txt{position:relative;z-index:1;width:100%}
+.k-rect{border-radius:2px}.k-rounded{border-radius:16px}.k-ellipse{border-radius:50%}.k-diamond{clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+.el.text{cursor:pointer;max-width:900px;width:max-content;line-height:1.25}
+.s-small{font-size:13px}.s-body{font-size:16px}.s-large{font-size:26px;font-weight:600}.s-title{font-size:40px;font-weight:700}
+.mark{position:absolute;top:-8px;right:-8px;width:20px;height:20px;border-radius:6px;background:var(--agent);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center;z-index:2}
+.rh{position:absolute;right:-9px;bottom:-9px;width:18px;height:18px;border-radius:50%;background:var(--panel);border:2px solid var(--accent);cursor:nwse-resize;pointer-events:auto;z-index:3}
+.rh{transform:scale(var(--inv,1));transform-origin:center}
+@media (pointer:coarse){.rh{width:26px;height:26px;right:-13px;bottom:-13px}}
+.c-yellow{background:var(--yellow)}.c-blue{background:var(--blue)}.c-green{background:var(--green)}.c-pink{background:var(--pink)}.c-purple{background:var(--purple)}.c-white{background:var(--white)}
+svg.arrows{position:absolute;left:0;top:0;width:1px;height:1px;overflow:visible;pointer-events:none}
+.arw .ln{stroke:var(--ink);stroke-width:2}
+.arw .hit{stroke:transparent;stroke-width:18;pointer-events:stroke;cursor:pointer}
+.arw.sel .ln{stroke:var(--accent);stroke-width:3.5}
+.arw text{font-size:12.5px;fill:var(--ink);stroke:var(--bg);stroke-width:5px;paint-order:stroke;text-anchor:middle}
+.claim{position:absolute;border:2px dashed var(--agent);border-radius:12px;background:color-mix(in srgb,var(--agent-soft) 55%,transparent);pointer-events:none}
+.claim span{position:absolute;top:-24px;left:0;background:var(--agent);color:#fff;font-size:12px;padding:2px 8px;border-radius:6px;white-space:nowrap}
+.selbar{position:absolute;left:50%;bottom:74px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px 8px;display:flex;gap:6px;align-items:center;box-shadow:0 6px 20px rgba(0,0,0,.14);z-index:7;max-width:calc(100% - 16px);overflow-x:auto}
+.selbar:empty{display:none}
+.selbar.top{bottom:auto;top:58px}
+.sw6{width:22px;height:22px;border-radius:50%;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--line);flex:none;padding:0}
+.selbar select{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:4px 6px;font-size:13px}
+.chat{position:absolute;left:50%;bottom:70px;transform:translateX(-50%);width:min(460px,calc(100% - 16px));max-height:min(66%,500px);display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 12px 32px rgba(0,0,0,.24);z-index:9;overflow:hidden}
+.chat.hide{display:none}
+.chat .ch{display:flex;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line)}
+.chat .ch .av svg{width:14px;height:14px}
+.chat .ch select{flex:1;min-width:0;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:5px 8px;font-weight:600}
+.chat .cap{font-size:12px;color:var(--muted);padding:6px 12px 0}
+.chat .log{flex:1;overflow:auto;padding:10px 12px;display:flex;flex-direction:column;gap:10px;min-height:56px}
+.msg.u{align-self:flex-end;background:var(--accent-soft);padding:7px 11px;border-radius:12px 12px 3px 12px;max-width:88%}
+.msg.a{font-size:14px}
+.stp{display:flex;gap:7px;align-items:baseline;font-size:12.5px;padding:2px 0;color:var(--muted)}
+.stp .st{flex:none;width:12px;text-align:center;font-weight:700}
+.stp.done .st{color:var(--accent)}.stp.failed .st,.stp.failed b{color:var(--danger)}
+.stp .k{font:700 10px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;padding:0 5px;border-radius:5px;border:1px solid var(--line);background:var(--bg);flex:none;width:54px;text-align:center}
+.stp .k.mcp{color:var(--accent)}.stp .k.rag{color:var(--agent)}
+.stp b{color:var(--ink);font-weight:600}
+.reply{white-space:pre-wrap;margin-top:6px;overflow-wrap:anywhere}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:0 10px 8px;flex:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--bg);border-radius:99px;padding:4px 10px;font-size:12.5px}
+.cin{display:flex;gap:8px;padding:8px 10px;border-top:1px solid var(--line);margin:0}
+.cin input{flex:1;min-width:0}
+.dock .ag.on{background:var(--agent);color:#fff}
+.panel{width:300px;flex:none;background:var(--panel);border-left:1px solid var(--line);overflow:auto;padding:14px}
+.panel.hide{display:none}
+.pclose{display:none;float:right}
+@media (max-width:759px){.pclose{display:block}}
+.panel h3{margin:0 0 6px;font-size:14px}
+.ev{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.ev:last-child{border:0}
+.ev small{color:var(--muted);display:block}
+.call{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;display:flex;gap:6px;padding:3px 0;border-bottom:1px dashed var(--line)}
+.call b{flex:none}
+.call .okc{color:var(--accent)}.call .bad{color:var(--danger)}
+.call span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* tables, docs, forms */
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:12.5px;color:var(--muted);font-weight:600;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+.tw{overflow-x:auto}
+code,pre,textarea.mono{font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+code{background:var(--bg);padding:1px 5px;border-radius:5px}
+pre{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow:auto;margin:8px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.sect{padding:18px 20px;margin-bottom:16px}
+.sect h2{font-size:16px;margin:0 0 4px}
+.sect p{margin:0;color:var(--muted)}
+.row{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border:0;padding-bottom:0}
+.sw{width:40px;height:23px;border-radius:99px;border:0;background:var(--line);position:relative;flex:none}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:17px;height:17px;border-radius:50%;background:#fff;transition:left .15s}
+.sw[aria-checked=true]{background:var(--accent)}
+.sw[aria-checked=true]::after{left:20px}
+input[type=text],select.f,textarea{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:8px 10px;width:100%}
+textarea{min-height:120px;resize:vertical}
+label{display:block;font-size:13px;font-weight:600;margin:12px 0 4px}
+.cgrid{display:grid;grid-template-columns:1fr 110px;gap:10px}
+.veil{position:fixed;inset:0;background:rgba(0,0,0,.4);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);border-radius:14px;padding:22px;width:min(500px,100%);max-height:90vh;overflow:auto}
+.modal h2{margin:0 0 4px;font-size:18px}
+.acts{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.warn{background:var(--agent-soft);color:var(--agent);padding:8px 10px;border-radius:8px;font-size:13px;margin-top:10px}
+.toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:12px;font-size:13.5px;z-index:30;opacity:0;transition:opacity .2s;pointer-events:none;max-width:92vw;text-align:center}
+.toast.show{opacity:1}
+.toast.act.show{pointer-events:auto}
+.tact{margin-left:12px;background:none;border:0;color:inherit;font-weight:700;text-decoration:underline;padding:0}
+.empty{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);text-align:center;color:var(--muted);max-width:300px;pointer-events:none;font-size:15px}
+.empty b{display:block;color:var(--ink);font-size:17px;margin-bottom:4px}
+.hide{display:none !important}
+.marq{position:absolute;border:1.5px solid var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);pointer-events:none;z-index:6;border-radius:3px}
+.racts{display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.ev small a{color:inherit}
+.me{cursor:pointer}
+.dock button em{display:none}
+@media (min-width:760px){
+  .dock button[data-tool]{width:54px;height:50px;align-content:center;gap:1px}
+  .dock button em{display:block;font-style:normal;font-size:10px;line-height:1.1;opacity:.85}
+}
+@media (max-width:759px){
+  table.agt th:nth-child(2),table.agt td:nth-child(2),table.agt th:nth-child(5),table.agt td:nth-child(5),table.agt th:nth-child(6),table.agt td:nth-child(6){display:none}
+}
+@media (max-width:759px){
+  body{flex-direction:column-reverse}
+  .side{width:auto;flex-direction:row;padding:4px 6px;border-right:0;border-top:1px solid var(--line)}
+  .brand,.me,.proto{display:none}
+  .nav{flex-direction:row;justify-content:space-around}
+  .nav a{flex-direction:column;gap:2px;font-size:10.5px;padding:6px 6px}
+  .view{padding:18px 16px 28px}
+  .panel{position:absolute;right:0;top:0;bottom:0;width:min(300px,86%);box-shadow:-8px 0 24px rgba(0,0,0,.18);z-index:8}
+  .bar .lbl{display:none}
+  .cgrid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<aside class="side">
+  <div class="brand"><i class="logo">A</i><b>Agent<span>Board</span></b></div>
+  <nav class="nav" id="nav"></nav>
+  <div class="proto">Prototype. The backend runs in this page; the agent's planning is rule-based, not a model.</div>
+  <div class="me" id="me"></div>
+</aside>
+<main class="main"><div id="view" class="view"></div><button class="ctb" id="ctb" title="Show the backend endpoints behind this page">Contract</button></main>
+<div id="toast" class="toast" role="status"></div>
+<div id="modal"></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   PART 1. In-page backend. Mirrors 02-contract-prompt.md: same paths,
+   same operation format, same error codes. The UI and the scripted
+   agents both go through api(); nothing writes to `db` any other way.
+   ===================================================================== */
+var LS = "agentboard-proto-v7";
+var LIMITS = {elements:800, ops:50, text:4000, claimMs:60000, claims:3};
+var COLORS = ["yellow","blue","green","pink","purple","white"];
+var KINDS = ["rect","rounded","ellipse","diamond"];
+var SIZES = ["small","body","large","title"];
+var SIZE_PX = {small:13, body:16, large:26, title:40};
+var ME = {kind:"user", id:"usr_me", name:"You"};
+var db, calls = [];
+
+function clone(o){ return o === undefined ? undefined : JSON.parse(JSON.stringify(o)); }
+function now(){ return new Date().toISOString(); }
+function rid(p, n){ var s = ""; while (s.length < (n || 8)) s += Math.random().toString(36).slice(2); return p + s.slice(0, n || 8); }
+var bc = null;
+var lastSaved = "";
+// Writes only when something changed, so two tabs never echo each other's refreshes.
+function save(){ try { var j = JSON.stringify(db); if (j === lastSaved) return; lastSaved = j; localStorage.setItem(LS, j); if (bc) bc.postMessage(1); } catch (e) {} }
+// Other tabs of this page stand in for other clients on the live feed.
+try { bc = new BroadcastChannel(LS); bc.onmessage = function(){ try { var j = localStorage.getItem(LS), d = JSON.parse(j); if (d && d.v === 7){ db = d; lastSaved = j; if (db.user) ME.name = db.user.name; if (!db.session || ui.top === "auth") route(); else refresh(); } } catch (e) {} }; } catch (e) {}
+function E(status, code, message, details){ var e = new Error(message); e.http = {status:status, body:{error:{code:code, message:message, details:details}}}; throw e; }
+function ok(body, status){ return {status:status || 200, body:clone(body)}; }
+
+function api(key, method, path, body, headers){
+  var res;
+  try { res = handle(key, method.toUpperCase(), path, clone(body) || {}, headers || {}); }
+  catch (e) { if (!e.http) throw e; res = e.http; }
+  if (key !== "session"){
+    var a = db.agents.filter(function(x){ return x.key === key; })[0];
+    calls.unshift({who:a ? a.name : "Unknown key", line:(viaTool ? "MCP " + viaTool + " → " : "") + method.toUpperCase() + " " + path.replace(/^\/api\/v1/, ""), status:res.status, code:res.body && res.body.error ? res.body.error.code : ""});
+    calls.length = Math.min(calls.length, 40);
+    save(); refresh();
+  }
+  return res;
+}
+function auth(key){
+  if (key === "session"){ if (!db.session) E(401, "unauthorized", "Sign in first."); return {actor:clone(ME), scopes:["boards:read","boards:write","manage"], caps:["knowledge"]}; }
+  var a = db.agents.filter(function(x){ return x.key === key; })[0];
+  if (!a) E(401, "unauthorized", "No valid session or API key.");
+  if (a.status !== "active") E(403, "forbidden", "This key has been revoked.");
+  a.lastSeenAt = now();
+  return {actor:{kind:"agent", id:a.id, name:a.name}, scopes:a.scopes.slice(), caps:(a.capabilities || []).slice(), boardIds:a.boardIds || null};
+}
+function need(ctx, scope){
+  if (ctx.scopes.indexOf(scope) < 0) E(403, "forbidden", scope === "manage" ? "This action needs a signed-in person." : "This key lacks the " + scope + " scope.");
+}
+function pubBoard(b){ return {id:b.id, title:b.title, seq:b.seq, order:b.order, elementCount:b.order.length, createdBy:b.createdBy, createdAt:b.createdAt, updatedAt:b.updatedAt, deletedAt:b.deletedAt || null}; }
+function stopRun(r){ if (r.status !== "queued" && r.status !== "running") return; r.status = "cancelled"; r.finishedAt = now(); r.steps.forEach(function(x){ if (x.status === "running") x.status = "skipped"; }); db.claims = db.claims.filter(function(c){ return !(c.boardId === r.boardId && c.actor.id === r.agentId); }); }
+function vAccess(v){ if (v === undefined || v === null) return null; if (!Array.isArray(v) || v.some(function(id){ return !db.boards[id]; })) E(422, "validation_failed", "boardIds must be null (all boards) or a list of existing board ids."); return v.slice(); }
+function pubAgent(a){ return {boardIds:a.boardIds || null, id:a.id, name:a.name, harness:a.harness, scopes:a.scopes, capabilities:a.capabilities || [], instructions:a.instructions || "", mcpServers:a.mcpServers || [], runner:a.runner || {kind:"builtin"}, keyPrefix:a.keyPrefix, status:a.status, lastSeenAt:a.lastSeenAt, createdAt:a.createdAt}; }
+function blank(){ return {v:7, user:null, session:false, settings:{name:"My workspace", agentsCanDeleteOthersElements:false, requireClaimBeforeAgentWrite:false}, agents:[], boards:{}, boardOrder:[], activity:[], claims:[], knowledge:[], runs:[], idem:{}}; }
+function weakHash(t){ var x = 5381; for (var i = 0; i < t.length; i++) x = ((x << 5) + x + t.charCodeAt(i)) >>> 0; return x.toString(36); }   // prototype only; the real app uses Argon2id
+function authRoute(what, body){
+  if (what === "signup"){
+    if (db.user) E(422, "validation_failed", "This prototype holds one account, and it already exists. Sign in instead.");
+    if (typeof body.name !== "string" || !body.name.trim() || body.name.length > 60) E(422, "validation_failed", "name must be 1 to 60 characters.");
+    if (typeof body.email !== "string" || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(body.email)) E(422, "validation_failed", "Enter a valid email address.");
+    if (typeof body.password !== "string" || body.password.length < 8) E(422, "validation_failed", "The password needs at least 8 characters.");
+    db.user = {id:"usr_me", email:body.email.trim().toLowerCase(), name:body.name.trim(), pw:weakHash(body.password), createdAt:now()};
+    db.session = true; ME.name = db.user.name; seed();
+    return ok({id:db.user.id, email:db.user.email, name:db.user.name, createdAt:db.user.createdAt}, 201);
+  }
+  if (what === "login"){
+    if (!db.user || String(body.email || "").trim().toLowerCase() !== db.user.email || weakHash(String(body.password || "")) !== db.user.pw) E(401, "unauthorized", "Wrong email or password.");
+    db.session = true; ME.name = db.user.name;
+    return ok({id:db.user.id, email:db.user.email, name:db.user.name, createdAt:db.user.createdAt});
+  }
+  if (what === "logout"){ db.session = false; return ok(null, 204); }
+  E(404, "not_found", "No such endpoint.");
+}
+var buckets = {};
+function rate(key, m){
+  if (key === "session") return;
+  var b = buckets[key] || (buckets[key] = {r:[], w:[]}), k = m === "GET" ? "r" : "w", t = Date.now(), lim = k === "r" ? 600 : 120;
+  b[k] = b[k].filter(function(x){ return t - x < 60000; });
+  if (b[k].length >= lim) E(429, "rate_limited", "Too many requests for this key. Try again shortly.", {retryAfterSeconds:Math.ceil((60000 - (t - b[k][0])) / 1000)});
+  b[k].push(t);
+}
+function vServers(v){
+  if (v === undefined) return [];
+  if (!Array.isArray(v) || v.length > 5 || v.some(function(x){ return !x || !/^[a-z0-9-]{1,40}$/.test(x.name || "") || typeof x.url !== "string" || !x.url; })) E(422, "validation_failed", "mcpServers must be up to 5 entries of { name, url }.");
+  return v.map(function(x){ return {name:x.name, url:x.url}; });
+}
+function vRunner(v){
+  if (v === undefined || (v && v.kind === "builtin")) return {kind:"builtin"};
+  if (v && v.kind === "webhook" && /^https?:\/\/\S+$/.test(v.url || "")) return {kind:"webhook", url:v.url};
+  E(422, "validation_failed", "runner must be { kind: \"builtin\" } or { kind: \"webhook\", url }.");
+}
+function touch(){ save(); refresh(); }
+function findRun(id){ return db.runs.filter(function(r){ return r.id === id; })[0]; }
+function activeRun(boardId, agentId){ return db.runs.filter(function(r){ return r.boardId === boardId && (!agentId || r.agentId === agentId) && (r.status === "queued" || r.status === "running"); })[0]; }
+function busyAgents(boardId){ return db.runs.filter(function(r){ return r.boardId === boardId && (r.status === "queued" || r.status === "running"); }).map(function(r){ return r.agentId; }); }
+var STEP_KINDS = ["prompt","plan","mcp","rag","tool"], STEP_STATES = ["running","done","failed","skipped"];
+function addStep(runId, d){
+  if (STEP_KINDS.indexOf(d.kind) < 0 || typeof d.name !== "string" || !d.name || (d.status && STEP_STATES.indexOf(d.status) < 0)) E(422, "validation_failed", "A step needs kind (" + STEP_KINDS.join(", ") + "), name, and an optional status.");
+  var s = {id:rid("stp_"), kind:d.kind, name:d.name.slice(0, 80), note:String(d.note || "").slice(0, 300), status:d.status || "running"};
+  findRun(runId).steps.push(s); touch(); return s;
+}
+function setStep(runId, d){
+  var s = findRun(runId).steps.filter(function(x){ return x.id === d.id; })[0];
+  if (!s) E(404, "not_found", "No step with id " + d.id + ".");
+  if (d.status){ if (STEP_STATES.indexOf(d.status) < 0) E(422, "validation_failed", "status must be one of: " + STEP_STATES.join(", ") + "."); s.status = d.status; }
+  if (d.note != null) s.note = String(d.note).slice(0, 300);
+  touch(); return s;
+}
+function finishRun(runId, d){
+  var run = findRun(runId);
+  if (d.error) run.error = {code:String(d.error.code || "failed"), message:String(d.error.message || "The run failed.")};
+  else if (typeof d.reply === "string") run.reply = d.reply.slice(0, 4000);
+  else E(422, "validation_failed", "finish needs { reply } or { error }.");
+  run.status = run.error ? "failed" : "done"; run.finishedAt = now();
+  run.steps.forEach(function(s){ if (s.status === "running") s.status = run.error ? "failed" : "done"; });
+  db.claims = db.claims.filter(function(c){ return !(c.boardId === run.boardId && c.actor.id === run.agentId); });
+  touch(); return run;
+}
+function vCaps(c){ if (c === undefined) return []; if (!Array.isArray(c) || c.some(function(x){ return x !== "knowledge"; })) E(422, "validation_failed", "capabilities may contain only: knowledge."); return c; }
+function vInstr(t){ if (t === undefined) return ""; if (typeof t !== "string" || t.length > 2000) E(422, "validation_failed", "instructions must be text of at most 2,000 characters."); return t.trim(); }
+function searchKnowledge(q, limit){
+  var STOP = {about:1, with:1, that:1, this:1, what:1, from:1, have:1, their:1, there:1, some:1, more:1, ideas:1, idea:1, questions:1, question:1, board:1, next:1, steps:1, step:1, please:1, add:1, brainstorm:1, missing:1, propose:1};
+  var words = String(q).toLowerCase().split(/[^a-z0-9]+/).filter(function(w){ return w.length > 2 && !STOP[w]; }).map(function(w){ return w.replace(/(ing|s)$/, ""); });
+  var hits = [];
+  db.knowledge.forEach(function(d){
+    (d.text.match(/[^.!?]+[.!?]*/g) || [d.text]).forEach(function(sen){
+      var low = sen.toLowerCase(), score = words.filter(function(w){ return w.length > 2 && low.indexOf(w) >= 0; }).length;
+      if (score) hits.push({docId:d.id, title:d.title, passage:sen.trim(), score:score});
+    });
+  });
+  return hits.sort(function(a, b){ return b.score - a.score; }).slice(0, limit || 3);
+}
+function vTitle(t){ if (typeof t !== "string" || !t.trim() || t.length > 120) E(422, "validation_failed", "title must be 1 to 120 characters."); return t.trim(); }
+function logAct(b, actor, summary, counts){
+  db.activity.unshift({id:rid("evt_"), boardId:b.id, boardTitle:b.title, actor:actor, seq:b.seq, summary:summary, counts:counts || {created:0, updated:0, deleted:0}, at:now()});
+  db.activity.length = Math.min(db.activity.length, 300);
+}
+function liveClaims(boardId){ var t = Date.now(); return db.claims.filter(function(c){ return c.boardId === boardId && new Date(c.expiresAt).getTime() > t; }); }
+function newKey(){ return rid("ab_live_", 40); }
+
+// Validate element fields. `type` fixes which fields are allowed; `partial` is for updates.
+function vEl(type, d, partial){
+  if (!d || typeof d !== "object") E(422, "validation_failed", "data must be an object.");
+  var out = {}, bad = function(m){ E(422, "validation_failed", m); };
+  var num = function(k, min){ if (d[k] === undefined){ if (!partial) bad(k + " is required."); return; } if (typeof d[k] !== "number" || !isFinite(d[k]) || (min != null && d[k] < min)) bad(k + " must be a number" + (min != null ? " of at least " + min : "") + "."); out[k] = Math.round(d[k]); };
+  var str = function(k, req){ if (d[k] === undefined){ if (req && !partial) bad(k + " is required."); return; } if (typeof d[k] !== "string") bad(k + " must be text."); if (d[k].length > LIMITS.text) E(422, "limit_exceeded", "Text is limited to " + LIMITS.text + " characters.", {limit:"textPerElement"}); out[k] = d[k]; };
+  var pick = function(k, list){ if (d[k] === undefined){ if (!partial) bad(k + " is required."); return; } if (list.indexOf(d[k]) < 0) bad(k + " must be one of: " + list.join(", ") + "."); out[k] = d[k]; };
+  if (type === "arrow"){ str("from", true); str("to", true); str("label"); if (!partial){ out.x = 0; out.y = 0; } return out; }
+  num("x"); num("y");
+  if (type === "note" || type === "shape"){ num("w", 20); num("h", 20); }
+  if (Math.abs(out.x || 0) > 100000 || Math.abs(out.y || 0) > 100000) bad("x and y must be within 100,000 of the origin.");
+  if ((out.w || 0) > 4000 || (out.h || 0) > 4000) bad("w and h may be at most 4,000.");
+  str("text", true);
+  if (type === "note" || type === "shape") pick("color", COLORS);
+  if (type === "shape") pick("kind", KINDS);
+  if (type === "text") pick("size", SIZES);
+  return out;
+}
+function boxOfData(el){
+  if (el.w != null) return {x:el.x, y:el.y, w:el.w, h:el.h};
+  var px = SIZE_PX[el.size] || 16, lines = String(el.text || "").split("\n");
+  var longest = lines.reduce(function(m, l){ return Math.max(m, l.length); }, 1);
+  return {x:el.x, y:el.y, w:Math.min(520, longest * px * 0.55), h:lines.length * px * 1.25};
+}
+function inRect(b, r){ var cx = b.x + b.w / 2, cy = b.y + b.h / 2; return cx >= r.x && cx <= r.x + r.w && cy >= r.y && cy <= r.y + r.h; }
+
+function applyOps(ctx, b, req){
+  var ops = req.ops;
+  if (!Array.isArray(ops) || !ops.length) E(422, "validation_failed", "ops must be a non-empty list.");
+  if (ops.length > LIMITS.ops) E(422, "limit_exceeded", "A batch may hold at most " + LIMITS.ops + " operations.", {limit:"opsPerBatch"});
+  var els = clone(b.els), order = b.order.slice(), results = [], actor = ctx.actor, isAgent = actor.kind === "agent";
+  var counts = {created:0, updated:0, deleted:0}, made = {}, moved = 0;
+  var mine = liveClaims(b.id).filter(function(c){ return c.actor.id === actor.id; });
+  function claimOk(el){
+    if (!isAgent || !db.settings.requireClaimBeforeAgentWrite) return;
+    var good = mine.some(function(c){
+      if (el.type === "arrow") return true;
+      if (c.target.elementIds) return c.target.elementIds.indexOf(el.id) >= 0;
+      return inRect(boxOfData(el), c.target.rect);
+    });
+    if (!good) E(409, "claim_required", "This workspace requires a claim covering the change before an agent writes.", {id:el.id});
+  }
+  var undo = [];
+  var bare = function(el){ var o = clone(el); ["id","version","createdBy","updatedBy","updatedAt"].forEach(function(k){ delete o[k]; }); return o; };
+  function drop(id){
+    undo.push({k:"create", id:id, data:bare(els[id])});
+    delete els[id]; order.splice(order.indexOf(id), 1); results.push({id:id, version:null}); counts.deleted++;
+  }
+  ops.forEach(function(o, i){
+    var at = "ops[" + i + "]: ";
+    if (o && o.op === "restack"){
+      // Z-order changes are relative moves, so they never clash with elements someone else just added.
+      if (!Array.isArray(o.ids) || !o.ids.length || o.ids.some(function(id){ return !els[id]; }) || (o.to !== "front" && o.to !== "back")) E(422, "validation_failed", at + "restack needs ids of existing elements and to: front or back.");
+      var keep = order.filter(function(id){ return o.ids.indexOf(id) >= 0; }), rest = order.filter(function(id){ return o.ids.indexOf(id) < 0; });
+      order = o.to === "front" ? rest.concat(keep) : keep.concat(rest);
+      keep.forEach(function(id){ results.push({id:id, version:els[id].version}); });
+      return;
+    }
+    if (!o || ["create","update","delete"].indexOf(o.op) < 0) E(422, "validation_failed", at + "op must be create, update, delete or restack.");
+    if (o.op === "create"){
+      var id = o.id || rid("el_");
+      if (!/^[A-Za-z0-9_-]{1,40}$/.test(id)) E(422, "validation_failed", at + "id must be 1 to 40 letters, digits, _ or -.");
+      if (els[id]) E(422, "validation_failed", at + "an element with id " + id + " already exists.");
+      var type = o.data && o.data.type;
+      if (["note","shape","text","arrow"].indexOf(type) < 0) E(422, "validation_failed", at + "data.type must be note, shape, text or arrow.");
+      var el = vEl(type, o.data, false);
+      el.id = id; el.type = type; el.version = 1; el.createdBy = actor; el.updatedBy = actor; el.updatedAt = now();
+      claimOk(el);
+      els[id] = el; undo.push({k:"delete", id:id});
+      order.push(id);
+      results.push({id:id, version:1}); counts.created++; made[type] = (made[type] || 0) + 1;
+      return;
+    }
+    var cur = els[o.id];
+    if (!cur) E(404, "not_found", at + "no element with id " + o.id + ".");
+    if (typeof o.ifVersion !== "number") E(422, "validation_failed", at + "ifVersion is required for " + o.op + ".");
+    if (o.ifVersion !== cur.version) E(409, "version_conflict", "Element " + o.id + " has changed since version " + o.ifVersion + ". Read the board again and retry.", {id:o.id, expected:o.ifVersion, actual:cur.version, current:clone(cur)});
+    claimOk(cur);
+    if (o.op === "update"){
+      if (o.data && o.data.type && o.data.type !== cur.type) E(422, "validation_failed", at + "an element's type cannot change.");
+      var patch = vEl(cur.type, o.data, true), keys = Object.keys(patch);
+      if (keys.length && keys.every(function(k){ return k === "x" || k === "y"; })) moved++;
+      var old = {}; keys.forEach(function(k){ old[k] = cur[k] === undefined ? "" : cur[k]; }); undo.push({k:"update", id:cur.id, data:old});
+      keys.forEach(function(k){ cur[k] = patch[k]; });
+      cur.version++; cur.updatedBy = actor; cur.updatedAt = now();
+      claimOk(cur);
+      results.push({id:cur.id, version:cur.version}); counts.updated++;
+    } else {
+      if (isAgent && !db.settings.agentsCanDeleteOthersElements && cur.createdBy.id !== actor.id)
+        E(403, "forbidden", "Agents may delete only elements they created (workspace setting).", {id:cur.id});
+      drop(cur.id);
+      Object.keys(els).forEach(function(k){ var a = els[k]; if (a.type === "arrow" && (a.from === cur.id || a.to === cur.id)) drop(k); });
+    }
+  });
+  Object.keys(els).forEach(function(k){
+    var a = els[k];
+    if (a.type === "arrow" && (!els[a.from] || !els[a.to] || els[a.from].type === "arrow" || els[a.to].type === "arrow" || a.from === a.to))
+      E(422, "validation_failed", "Arrow " + k + " must join two different existing elements.");
+  });
+  if (order.length > LIMITS.elements) E(422, "limit_exceeded", "A board may hold at most " + LIMITS.elements + " elements.", {limit:"elementsPerBoard"});
+  // commit
+  b.els = els; b.order = order; b.seq++; b.updatedAt = now();
+  var parts = [];
+  Object.keys(made).forEach(function(t){ parts.push("added " + made[t] + " " + t + (made[t] > 1 ? "s" : "")); });
+  if (moved) parts.push("moved " + moved + " element" + (moved > 1 ? "s" : ""));
+  if (counts.updated - moved) parts.push("edited " + (counts.updated - moved) + " element" + (counts.updated - moved > 1 ? "s" : ""));
+  if (counts.deleted) parts.push("deleted " + counts.deleted + " element" + (counts.deleted > 1 ? "s" : ""));
+  logAct(b, actor, parts.join(", ") || "reordered elements", counts);
+  // Keep what is needed to undo this batch later (POST /boards/{id}/batches/{seq}/revert).
+  var after = {}; results.forEach(function(r){ after[r.id] = r.version; });
+  b.batches = b.batches || []; b.batches.push({seq:b.seq, actor:actor, at:now(), undo:undo.reverse(), after:after, revertedBy:null});
+  if (b.batches.length > 100) b.batches.shift();
+  db.activity[0].revertible = undo.length > 0;
+  var vr = viaRun && findRun(viaRun);
+  if (vr){ vr.batches.push(b.seq); results.forEach(function(r){ if (r.version != null && vr.touched.indexOf(r.id) < 0) vr.touched.push(r.id); }); }
+  return {seq:b.seq, results:results};
+}
+function revertBatch(ctx, b, seq){
+  var bt = (b.batches || []).filter(function(x){ return x.seq === seq; })[0];
+  if (!bt) E(404, "not_found", "That change is too old to undo, or does not exist.");
+  if (bt.revertedBy) E(409, "version_conflict", "That change was already undone.");
+  if (!bt.undo.length) E(422, "validation_failed", "That change has nothing to undo.");
+  var stale = Object.keys(bt.after).filter(function(id){ var el = b.els[id], v = bt.after[id]; return v === null ? !!el : (!el || el.version !== v); });
+  if (stale.length) E(409, "version_conflict", "Some of those elements have changed since, so this cannot be undone automatically.", {ids:stale});
+  var ver = {};
+  var ops = bt.undo.map(function(d){
+    if (d.k === "create") return {op:"create", id:d.id, data:d.data};
+    var v = ver[d.id] != null ? ver[d.id] : b.els[d.id].version; ver[d.id] = v + 1;
+    return d.k === "update" ? {op:"update", id:d.id, ifVersion:v, data:d.data} : {op:"delete", id:d.id, ifVersion:v};
+  });
+  var res = applyOps(ctx, b, {ops:ops});
+  bt.revertedBy = res.seq;
+  db.activity[0].summary = "undid a change by " + bt.actor.name; db.activity[0].revertible = false;
+  return res;
+}
+
+function digest(b){
+  // Free-form board: every element with its position, in reading order, so a model can reason about layout.
+  var all = b.order.map(function(id){ return b.els[id]; }), arrows = all.filter(function(e){ return e.type === "arrow"; });
+  var rest = all.filter(function(e){ return e.type !== "arrow"; }).sort(function(a, c){ return a.y - c.y || a.x - c.x; });
+  var out = ["# " + b.title + "  (seq " + b.seq + ", " + all.length + " elements)"];
+  // Bounded so a full board cannot flood a model's context: long text is clipped, and the list stops at a size budget.
+  var clip = function(t){ t = t.replace(/\s+/g, " "); return t.length > 200 ? t.slice(0, 200) + "… [clipped, " + t.length + " chars]" : t; }, budget = 20000, shown = 0;
+  rest = rest.filter(function(e){ budget -= Math.min(e.text.length, 230) + 60; if (budget < 0) return false; shown++; return true; });
+  if (rest.length){ out.push("", "## Elements"); rest.forEach(function(e){ out.push("- [" + e.id + " v" + e.version + "] " + e.type + "/" + (e.type === "note" ? e.color : e.type === "shape" ? e.kind + "/" + e.color : e.size) + " @" + e.x + "," + e.y + (e.w != null ? " " + e.w + "x" + e.h : "") + ": " + clip(e.text) + "  (by " + e.updatedBy.name + ")"); }); }
+  if (shown < all.length - arrows.length) out.push("- … " + (all.length - arrows.length - shown) + " more elements not shown. Read the board as JSON for the rest.");
+  if (arrows.length){ out.push("", "## Arrows"); arrows.forEach(function(a){ out.push("- [" + a.id + " v" + a.version + "] " + a.from + " -> " + a.to + ": " + (a.label || '""')); }); }
+  var cl = liveClaims(b.id);
+  if (cl.length){ out.push("", "## Active claims"); cl.forEach(function(c){ out.push("- " + c.actor.name + ": " + (c.note || "working") + "  (expires " + c.expiresAt.slice(11, 19) + "Z)"); }); }
+  return out.join("\n");
+}
+
+function handle(key, m, path, body, hdr){
+  var s0 = path.replace(/^\/api\/v1/, "").split("?")[0].split("/").filter(Boolean);
+  if (s0[0] === "auth" && m === "POST") return authRoute(s0[1], body);
+  var ctx = auth(key);
+  rate(key, m);
+  var s = path.replace(/^\/api\/v1/, "").split("?")[0].split("/").filter(Boolean), R = s[0];
+  if (R === "me" && m === "GET") return ok({actor:ctx.actor, scopes:ctx.scopes.filter(function(x){ return x !== "manage"; })});
+  if (R === "boards"){
+    if (s.length === 1 && m === "GET"){ need(ctx, "boards:read"); var trashed = /[?&]trashed=true/.test(path); if (trashed) need(ctx, "manage"); return ok({items:db.boardOrder.map(function(id){ return db.boards[id]; }).filter(function(x){ return !!x.deletedAt === trashed && (!ctx.boardIds || ctx.boardIds.indexOf(x.id) >= 0); }).map(pubBoard), nextCursor:null}); }
+    if (s.length === 1 && m === "POST"){
+      need(ctx, "boards:write");
+      var mk = ctx.boardIds && db.agents.filter(function(x){ return x.id === ctx.actor.id; })[0];
+      var nb = {id:rid("brd_"), title:vTitle(body.title), seq:0, order:[], els:{}, createdBy:ctx.actor, createdAt:now(), updatedAt:now()};
+      db.boards[nb.id] = nb; db.boardOrder.unshift(nb.id); if (mk) mk.boardIds.push(nb.id); logAct(nb, ctx.actor, "created the board");
+      return ok(pubBoard(nb), 201);
+    }
+    var b = db.boards[s[1]];
+    if (!b || (ctx.boardIds && ctx.boardIds.indexOf(b.id) < 0)) E(404, "not_found", "No board with id " + s[1] + ".");
+    if (s[2] === "restore" && m === "POST"){ need(ctx, "manage"); b.deletedAt = null; b.updatedAt = now(); logAct(b, ctx.actor, "restored the board"); return ok(pubBoard(b)); }
+    if (b.deletedAt) E(404, "not_found", "No board with id " + s[1] + ".");
+    if (s[2] === "batches" && s[4] === "revert" && m === "POST"){ need(ctx, "manage"); return ok(revertBatch(ctx, b, parseInt(s[3], 10))); }
+    if (s.length === 2){
+      if (m === "GET"){ need(ctx, "boards:read"); return ok(pubBoard(b)); }
+      if (m === "PATCH"){ need(ctx, "boards:write"); b.title = vTitle(body.title); b.updatedAt = now(); logAct(b, ctx.actor, "renamed the board"); return ok(pubBoard(b)); }
+      if (m === "DELETE"){
+        // Soft delete: the board goes to the trash and can be restored. The real app purges it after 30 days.
+        need(ctx, "manage"); b.deletedAt = now(); db.claims = db.claims.filter(function(c){ return c.boardId !== b.id; });
+        db.runs.forEach(function(r){ if (r.boardId === b.id) stopRun(r); });
+        return ok(null, 204);
+      }
+    }
+    var sub = s[2];
+    if (sub === "elements" && m === "GET"){ need(ctx, "boards:read"); return ok({seq:b.seq, order:b.order, elements:b.order.map(function(id){ return b.els[id]; })}); }
+    if (sub === "digest" && m === "GET"){ need(ctx, "boards:read"); return ok({seq:b.seq, text:digest(b)}); }
+    if (sub === "ops" && m === "POST"){
+      need(ctx, "boards:write");
+      var ik = hdr["Idempotency-Key"], ikk = ik ? ctx.actor.id + ":" + b.id + ":" + ik : null;
+      if (ik && !/^[A-Za-z0-9_-]{16,128}$/.test(ik)) E(422, "validation_failed", "Idempotency-Key must be 16 to 128 letters, digits, _ or -.");
+      var sig = JSON.stringify(body);
+      if (ikk && db.idem[ikk]){ if (db.idem[ikk].sig !== sig) E(422, "validation_failed", "This Idempotency-Key was already used with a different request."); return ok(db.idem[ikk].res); }
+      var applied = applyOps(ctx, b, body);
+      if (ikk){ db.idem[ikk] = {sig:sig, res:applied}; var iks = Object.keys(db.idem); if (iks.length > 200) delete db.idem[iks[0]]; }
+      return ok(applied);
+    }
+    if (sub === "runs"){
+      need(ctx, "manage");
+      if (m === "GET") return ok({items:db.runs.filter(function(r){ return r.boardId === b.id; }).reverse(), nextCursor:null});
+      if (m === "POST"){
+        var ra = db.agents.filter(function(x){ return x.id === body.agentId; })[0];
+        if (!ra) E(404, "not_found", "No agent with id " + body.agentId + ".");
+        if (ra.status !== "active") E(403, "forbidden", "This agent's key has been revoked.");
+        if (typeof body.message !== "string" || !body.message.trim() || body.message.length > 2000) E(422, "validation_failed", "message must be 1 to 2,000 characters.");
+        if (ra.boardIds && ra.boardIds.indexOf(b.id) < 0) E(403, "forbidden", "This agent has no access to this board.");
+        if (activeRun(b.id, ra.id)) E(409, "run_in_progress", "This agent is already working on this board.");
+        if (db.runs.filter(function(r){ return r.status === "queued" || r.status === "running"; }).length >= 3) E(429, "rate_limited", "Three runs are already in progress in this workspace. Try again when one finishes.", {limit:"concurrentRuns"});
+        if (db.runs.filter(function(r){ return r.agentId === ra.id && Date.now() - new Date(r.createdAt).getTime() < 86400000; }).length >= 100) E(429, "rate_limited", "This agent has reached its daily limit of 100 runs.", {limit:"runsPerAgentPerDay"});
+        var run = {id:rid("run_"), boardId:b.id, agentId:ra.id, requestedBy:ctx.actor, message:body.message.trim(), status:"queued", steps:[], batches:[], touched:[], reverted:false, reply:null, error:null, createdAt:now(), finishedAt:null};
+        db.runs.push(run); if (db.runs.length > 100) db.runs.shift();
+        setTimeout(function(){ dispatchRun(run.id); }, 0);
+        return ok(run, 202);
+      }
+    }
+    if (sub === "claims"){
+      if (s.length === 3 && m === "GET"){ need(ctx, "boards:read"); return ok({items:liveClaims(b.id)}); }
+      need(ctx, "boards:write");
+      if (s.length === 3 && m === "POST"){
+        var t = body.target, r = t && t.rect;
+        var good = t && ((r && ["x","y","w","h"].every(function(k){ return typeof r[k] === "number"; })) || (Array.isArray(t.elementIds) && t.elementIds.length));
+        if (!good) E(422, "validation_failed", "target must be { rect: { x, y, w, h } } or { elementIds: [...] }.");
+        if (body.note != null && (typeof body.note !== "string" || body.note.length > 80)) E(422, "validation_failed", "note must be text of at most 80 characters.");
+        if (liveClaims(b.id).filter(function(c){ return c.actor.id === ctx.actor.id; }).length >= LIMITS.claims) E(422, "limit_exceeded", "At most " + LIMITS.claims + " active claims per actor per board.", {limit:"claimsPerActor"});
+        var c = {id:rid("clm_"), boardId:b.id, actor:ctx.actor, target:r ? {rect:r} : {elementIds:t.elementIds}, note:body.note, expiresAt:new Date(Date.now() + LIMITS.claimMs).toISOString()};
+        db.claims.push(c); return ok(c, 201);
+      }
+      var cl = db.claims.filter(function(x){ return x.id === s[3] && x.boardId === b.id; })[0];
+      if (!cl) E(404, "not_found", "No claim with id " + s[3] + ".");
+      if (cl.actor.id !== ctx.actor.id && ctx.actor.kind === "agent") E(403, "forbidden", "Only the claim's owner may change it.");
+      if (s[4] === "renew" && m === "POST"){ cl.expiresAt = new Date(Date.now() + LIMITS.claimMs).toISOString(); return ok(cl); }
+      if (s.length === 4 && m === "DELETE"){ db.claims.splice(db.claims.indexOf(cl), 1); return ok(null, 204); }
+    }
+  }
+  if (R === "activity" && m === "GET"){ need(ctx, "manage"); return ok({items:db.activity, nextCursor:null}); }
+  if (R === "agents"){
+    need(ctx, "manage");
+    if (s.length === 1 && m === "GET") return ok({items:db.agents.map(pubAgent)});
+    if (s.length === 1 && m === "POST"){
+      if (typeof body.name !== "string" || !body.name.trim() || body.name.length > 60) E(422, "validation_failed", "name must be 1 to 60 characters.");
+      var sc = body.scopes;
+      if (!Array.isArray(sc) || !sc.length || sc.some(function(x){ return x !== "boards:read" && x !== "boards:write"; })) E(422, "validation_failed", "scopes must be boards:read and/or boards:write.");
+      var k = newKey(), a = {id:rid("agt_"), name:body.name.trim(), harness:String(body.harness || "custom"), scopes:sc, capabilities:vCaps(body.capabilities), instructions:vInstr(body.instructions), mcpServers:vServers(body.mcpServers), runner:vRunner(body.runner), boardIds:vAccess(body.boardIds), key:k, keyPrefix:k.slice(0, 11), status:"active", lastSeenAt:null, createdAt:now()};
+      db.agents.unshift(a); return ok({agent:pubAgent(a), key:k}, 201);
+    }
+    var ag = db.agents.filter(function(x){ return x.id === s[1]; })[0];
+    if (!ag) E(404, "not_found", "No agent with id " + s[1] + ".");
+    if (s[2] === "rotate-key" && m === "POST"){ ag.key = newKey(); ag.keyPrefix = ag.key.slice(0, 11); ag.status = "active"; return ok({agent:pubAgent(ag), key:ag.key}); }
+    if (s.length === 2 && m === "PATCH"){
+      if (body.name !== undefined){ if (typeof body.name !== "string" || !body.name.trim() || body.name.length > 60) E(422, "validation_failed", "name must be 1 to 60 characters."); ag.name = body.name.trim(); }
+      if (body.scopes !== undefined){ if (!Array.isArray(body.scopes) || !body.scopes.length || body.scopes.some(function(x){ return x !== "boards:read" && x !== "boards:write"; })) E(422, "validation_failed", "scopes must be boards:read and/or boards:write."); ag.scopes = body.scopes; }
+      if (body.capabilities !== undefined) ag.capabilities = vCaps(body.capabilities);
+      if (body.instructions !== undefined) ag.instructions = vInstr(body.instructions);
+      if (body.mcpServers !== undefined) ag.mcpServers = vServers(body.mcpServers);
+      if (body.runner !== undefined) ag.runner = vRunner(body.runner);
+      if (body.boardIds !== undefined) ag.boardIds = vAccess(body.boardIds);
+      return ok(pubAgent(ag));
+    }
+    if (s.length === 2 && m === "DELETE"){ ag.status = "revoked"; db.runs.forEach(function(r){ if (r.agentId === ag.id) stopRun(r); }); db.claims = db.claims.filter(function(c){ return c.actor.id !== ag.id; }); return ok(null, 204); }
+  }
+  if (R === "runs"){
+    var rn = findRun(s[1]);
+    if (!rn) E(404, "not_found", "No run with id " + s[1] + ".");
+    if (s.length === 2 && m === "GET"){ need(ctx, "manage"); return ok(rn); }
+    if (s[2] === "cancel" && m === "POST"){
+      need(ctx, "manage");
+      stopRun(rn);
+      return ok(rn);
+    }
+    if (s[2] === "revert" && m === "POST"){
+      need(ctx, "manage");
+      var rb = db.boards[rn.boardId];
+      if (!rb || rb.deletedAt) E(404, "not_found", "That board no longer exists.");
+      if (rn.reverted || !rn.batches.length) E(422, "validation_failed", "This run has no changes left to undo.");
+      rn.batches.slice().reverse().forEach(function(q){ revertBatch(ctx, rb, q); });
+      rn.reverted = true;
+      return ok(rn);
+    }
+    if ((s[2] === "steps" || s[2] === "finish") && m === "POST"){
+      var rag = db.agents.filter(function(x){ return x.id === rn.agentId; })[0];
+      if (ctx.actor.id !== rn.agentId) E(403, "forbidden", "Only the run's own agent may report on it.");
+      if (rag.runner.kind !== "webhook") E(403, "forbidden", "Only webhook runners report through the API.");
+      if (rn.status !== "running") E(422, "validation_failed", "This run is no longer running.");
+      if (s[2] === "finish") return ok(finishRun(rn.id, body));
+      return body.id ? ok(setStep(rn.id, body)) : ok(addStep(rn.id, body), 201);
+    }
+  }
+  if (R === "knowledge"){
+    if (s[1] === "search" && m === "GET"){
+      if (ctx.caps.indexOf("knowledge") < 0) E(403, "forbidden", "This agent does not have the knowledge capability.");
+      var q = decodeURIComponent(((path.split("?")[1] || "").match(/(?:^|&)q=([^&]*)/) || [])[1] || "");
+      if (!q.trim()) E(422, "validation_failed", "q is required.");
+      var lim = parseInt(((path.split("?")[1] || "").match(/(?:^|&)limit=(\d+)/) || [])[1] || "3", 10);
+      return ok({items:searchKnowledge(q, Math.max(1, Math.min(10, lim)))});
+    }
+    need(ctx, "manage");
+    if (s.length === 1 && m === "GET") return ok({items:db.knowledge});
+ if (s.length === 1 && m === "POST"){
+      if (db.knowledge.length >= 200) E(422, "limit_exceeded", "A workspace may hold at most 200 knowledge documents.", {limit:"knowledgeDocs"});
+      if (typeof body.text !== "string" || !body.text.trim() || body.text.length > 20000) E(422, "validation_failed", "text must be 1 to 20,000 characters.");
+      var doc = {id:rid("doc_"), title:vTitle(body.title), text:body.text.trim(), createdAt:now()};
+      db.knowledge.unshift(doc); return ok(doc, 201);
+    }
+    if (s.length === 2 && m === "DELETE"){ var before = db.knowledge.length; db.knowledge = db.knowledge.filter(function(d){ return d.id !== s[1]; }); if (db.knowledge.length === before) E(404, "not_found", "No document with id " + s[1] + "."); return ok(null, 204); }
+  }
+  if (R === "settings"){
+    need(ctx, "manage");
+    if (m === "GET") return ok(db.settings);
+    if (m === "PATCH"){
+      if (body.name !== undefined) db.settings.name = vTitle(body.name);
+      ["agentsCanDeleteOthersElements","requireClaimBeforeAgentWrite"].forEach(function(k){ if (body[k] !== undefined){ if (typeof body[k] !== "boolean") E(422, "validation_failed", k + " must be true or false."); db.settings[k] = body[k]; } });
+      return ok(db.settings);
+    }
+  }
+  E(404, "not_found", "No such endpoint: " + m + " " + path);
+}
+
+// ---- seed data ----
+function seed(){
+  var keep = db || {};
+  db = blank(); db.user = keep.user || null; db.session = !!keep.session;
+  [["Product brief", "AgentBoard lets people and AI agents share one whiteboard. The first release targets small product teams of five to ten people. Onboarding must take under two minutes from sign-up to the first note. Agents connect with an API key and never share a person's login. Pricing is per workspace, not per agent."],
+   ["Customer interviews", "Four of six teams said agents repeat ideas that are already on the board. Teams want to see what an agent is doing before it finishes. Two teams asked for a weekly summary posted to the board automatically. Onboarding stalls when people do not know which agent to pick. People trust agent notes more when the source is shown."],
+   ["Team norms", "Every decision note names an owner and a date. Brainstorms are timeboxed to twenty minutes. Agents may add and move notes but people make the final decision. Review open questions every Monday."]
+  ].forEach(function(d){ db.knowledge.push({id:rid("doc_"), title:d[0], text:d[1], createdAt:now()}); });
+  var t0 = Date.now(), ago = function(min){ return new Date(t0 - min * 60000).toISOString(); };
+  function agent(name, harness, scopes, seen, caps, instr, servers, runner){ var k = newKey(); var a = {id:rid("agt_"), name:name, harness:harness, scopes:scopes, capabilities:caps, instructions:instr, mcpServers:servers || [], runner:runner || {kind:"builtin"}, key:k, keyPrefix:k.slice(0, 11), status:"active", lastSeenAt:ago(seen), createdAt:ago(3000)}; db.agents.push(a); return {kind:"agent", id:a.id, name:name}; }
+  var P = agent("Planner agent", "claude-code", ["boards:read","boards:write"], 2, ["knowledge"], "Turn discussion into decisions. Every next step names an owner.", [{name:"idea-library", url:"demo://idea-library"}]);
+  var Rs = agent("Research agent", "langgraph", ["boards:read","boards:write"], 60, [], "Ask sharp questions. Keep notes short.", [{name:"idea-library", url:"demo://idea-library"}], {kind:"webhook", url:"https://harness.example.com/agentboard"});
+  agent("Nightly summarizer", "custom", ["boards:read"], 4000, ["knowledge"], "Summarise; never change the board.");
+  function board(title, mins){ var b = {id:rid("brd_"), title:title, seq:1, order:[], els:{}, createdBy:ME, createdAt:ago(mins + 30), updatedAt:ago(mins)}; db.boards[b.id] = b; db.boardOrder.push(b.id); return b; }
+  var n = 0;
+  function add(b, d, by){ var id = "e" + (++n); var el = Object.assign({id:id, version:1}, d, {createdBy:by || ME, updatedBy:by || ME, updatedAt:b.updatedAt}); if (d.type === "arrow"){ el.x = 0; el.y = 0; } b.els[id] = el; b.order.push(id); return id; }
+  var b1 = board("Agent Brainstorm Board", 2);
+  add(b1, {type:"text", x:40, y:-100, text:"Agent Brainstorm Board", size:"title"});
+  add(b1, {type:"text", x:40, y:-36, text:"Free-form: put anything anywhere, then ask an agent to help.", size:"large"});
+  var N = function(x, y, color, text, by, w){ return add(b1, {type:"note", x:x, y:y, w:w || 220, h:92, color:color, text:text}, by); };
+  N(40, 50, "white", "Goal: a shared whiteboard any agent or harness can read and write", null, 280);
+  N(70, 210, "yellow", "One idea per note"); N(310, 185, "yellow", "Build on a note: add yours beside it");
+  var wild = N(190, 330, "yellow", "Wild ideas welcome", P);
+  N(640, 60, "blue", "What don't we know yet?"); N(700, 185, "blue", "Who or what can answer it?", P);
+  var dec = N(990, 150, "green", "Decision: what we chose and why", null, 240); N(1010, 280, "green", "Next step: owner and done-when", null, 240);
+  add(b1, {type:"arrow", from:wild, to:dec, label:"leads to"});
+  var b2 = board("Q1 launch plan", 60);
+  add(b2, {type:"text", x:40, y:20, text:"Q1 launch plan", size:"title"});
+  var r = add(b2, {type:"shape", x:40, y:120, w:190, h:90, kind:"rounded", color:"blue", text:"Research"});
+  var bu = add(b2, {type:"shape", x:330, y:120, w:190, h:90, kind:"rounded", color:"blue", text:"Build"});
+  var la = add(b2, {type:"shape", x:620, y:105, w:190, h:120, kind:"diamond", color:"green", text:"Launch?"});
+  add(b2, {type:"arrow", from:r, to:bu, label:"findings"}); add(b2, {type:"arrow", from:bu, to:la});
+  add(b2, {type:"note", x:40, y:270, w:190, h:90, color:"yellow", text:"Interview 5 customers"}, Rs);
+  add(b2, {type:"note", x:330, y:270, w:190, h:90, color:"yellow", text:"Ship beta to 20 users"}, Rs);
+  add(b2, {type:"shape", x:640, y:290, w:150, h:80, kind:"ellipse", color:"purple", text:"Risks"});
+  var b3 = board("Support triage ideas", 1500);
+  add(b3, {type:"note", x:40, y:40, w:220, h:100, color:"pink", text:"Auto-tag tickets by product area"});
+  add(b3, {type:"note", x:290, y:60, w:220, h:100, color:"yellow", text:"Draft replies for the top 10 questions"});
+  add(b3, {type:"note", x:120, y:180, w:220, h:100, color:"yellow", text:"Flag angry customers early"});
+  var ev = function(b, actor, summary, mins){ db.activity.push({id:rid("evt_"), boardId:b.id, boardTitle:b.title, actor:actor, seq:1, summary:summary, counts:{created:0, updated:0, deleted:0}, at:ago(mins)}); };
+  ev(b1, P, "added 2 notes", 2); ev(b1, ME, "created the board", 14); ev(b2, Rs, "added 2 notes", 60); ev(b2, ME, "moved 4 elements", 120); ev(b3, ME, "created the board", 1500);
+  save();
+}
+try { db = JSON.parse(localStorage.getItem(LS)); } catch (e) { db = null; }
+if (!db || db.v !== 7) db = blank();
+if (db.user) ME.name = db.user.name;
+db.runs.forEach(function(r){ if (r.status === "queued" || r.status === "running"){ r.status = "failed"; r.error = {code:"interrupted", message:"The page was reloaded while this run was in progress."}; r.finishedAt = now(); } });
+setInterval(function(){ var n = db.claims.length, t = Date.now(); db.claims = db.claims.filter(function(c){ return new Date(c.expiresAt).getTime() > t; }); var late = db.runs.filter(function(r){ return r.status === "running" && t - new Date(r.createdAt).getTime() > 120000; }); late.forEach(function(r){ finishRun(r.id, {error:{code:"run_timeout", message:"The run passed its 120 second limit."}}); }); if (db.claims.length !== n){ save(); refresh(); } }, 2000);
+
+/* =====================================================================
+   PART 2. Agent runs. A run is one plain-language request from a
+   person to one agent on one board (POST /boards/{id}/runs).
+   This prototype has no model: parseAsk + buildWork are a small
+   rule-based stand-in for the LLM, so it understands a limited set of
+   requests. Everything else is real: the runner acts with the agent's
+   own key, and each step uses one of its capabilities:
+     PROMPT  its instructions
+     MCP     board tools (mcp()), or an external MCP server
+     RAG     knowledge search
+   An agent whose runner is "webhook" is played by a simulated outside
+   harness that reports through POST /runs/{id}/steps and /finish.
+   In the real app a model runs this loop: 03-backend-prompt.md, stage K.
+   ===================================================================== */
+var chat = {open:false, agentId:null};
+var viaTool = null, viaRun = null;
+var GEN = {
+  ideas:["Pilot {t} with one small team first", "Automate the slowest step in {t}", "Ask five users what frustrates them about {t}", "Make a one-click starter template for {t}", "Track one success number for {t} each week", "Let an agent draft the first version of {t}"],
+  questions:["Who owns {t} end to end?", "What would make {t} fail?", "How will we know {t} is working?", "What does {t} cost to run?", "Who has to approve {t}?", "What is the smallest test of {t}?"],
+  next:["Write a one-page brief for {t}", "Name an owner for {t}", "Set a review date for {t}", "Run a one-week trial of {t}", "List what {t} depends on", "Share the {t} plan for feedback"]
+};
+var GENERIC = {
+  ideas:["Let agents vote on ideas", "A digest view for small context windows", "Template boards per task type", "Weekly summary posted by an agent", "Link notes to pull requests", "Colour notes by confidence", "Auto-group similar ideas", "Export a board to a task list"],
+  questions:["Who decides when ideas conflict?", "How do we stop agents repeating each other?", "What is the smallest version we can test?", "Which agents need write access?", "How will we measure success?", "What happens when an agent is wrong?"],
+  next:["Pick the top three ideas", "Assign an owner to each idea", "Set a review date", "Write the one-page brief", "Run a one-week trial", "Share the plan for feedback"]
+};
+var KIND = {ideas:{color:"yellow", word:"idea"}, questions:{color:"blue", word:"question"}, next:{color:"green", word:"next step"}};
+var NUM = {one:1, two:2, three:3, four:4, five:5, six:6, a:1, an:1};
+var HELP = "I can work on this board when you ask in plain words. For example:\n• Brainstorm 4 ideas about onboarding\n• What questions are we missing about pricing?\n• Propose next steps\n• Summarize the board\n• Tidy the layout\n• Make the yellow notes pink\n• Delete the blue notes";
+var GUIDE = "How to work on an AgentBoard board:\n1. read_board first. The digest lists every element with its id and version.\n2. claim the area or elements you will change, with a short note.\n3. write_board once, with all your operations in one batch. Updates and deletes need ifVersion.\n4. release_claim when done.\nOn version_conflict, read again and retry. Boards are free-form: put new notes in open space beside related ones, never on top of anything. Limits: 800 elements per board, 50 operations per batch, 4,000 characters per element.";
+// External MCP servers this page can reach. Real ones are URLs; these are simulated in the page.
+var MCP_DEMO = {
+  "idea-library":{title:"Idea library", url:"demo://idea-library", about:"Starting points for a topic", tools:{
+    suggest:function(args){ var k = GEN[args.kind] ? args.kind : "ideas"; return {items:GEN[k].map(function(g){ return g.replace("{t}", String(args.topic || "this")); })}; }
+  }}
+};
+
+// The board's own MCP tools. Each maps to one REST call made with the agent's key.
+function mcp(key, tool, args){
+  args = args || {};
+  var b = "/boards/" + args.boardId, r;
+  viaTool = tool;
+  try {
+    if (tool === "list_boards") r = api(key, "GET", "/boards");
+    else if (tool === "read_board") r = api(key, "GET", b + (args.format === "json" ? "/elements" : "/digest"));
+    else if (tool === "write_board") r = api(key, "POST", b + "/ops", {ops:args.ops}, args.idempotencyKey ? {"Idempotency-Key":args.idempotencyKey} : null);
+    else if (tool === "create_board") r = api(key, "POST", "/boards", {title:args.title});
+    else if (tool === "claim") r = api(key, "POST", b + "/claims", {target:args.target, note:args.note});
+    else if (tool === "release_claim"){ r = api(key, "DELETE", b + "/claims/" + args.claimId); if (r.status === 204) r = {status:200, body:{ok:true}}; }
+    else if (tool === "search_knowledge") r = api(key, "GET", "/knowledge/search?q=" + encodeURIComponent(args.query || "") + (args.limit ? "&limit=" + args.limit : ""));
+    else if (tool === "get_guide"){ r = api(key, "GET", "/me"); if (r.status === 200) r = {status:200, body:{text:GUIDE}}; }
+    else r = {status:404, body:{error:{code:"not_found", message:"No MCP tool named " + tool + "."}}};
+  } finally { viaTool = null; }
+  return r;
+}
+function mcpExternal(agent, server, tool, args){
+  var has = (agent.mcpServers || []).some(function(s){ return s.name === server; }), d = MCP_DEMO[server], res;
+  if (!has) res = {status:403, body:{error:{code:"forbidden", message:"This agent is not connected to the " + server + " MCP server."}}};
+  else if (!d || !d.tools[tool]) res = {status:404, body:{error:{code:"not_found", message:"The " + server + " server is not reachable from this prototype, or has no tool " + tool + "."}}};
+  else res = {status:200, body:d.tools[tool](args || {})};
+  calls.unshift({who:agent.name, line:"MCP " + server + "." + tool + " (external)", status:res.status, code:res.body.error ? res.body.error.code : ""});
+  return res;
+}
+
+// Stand-in for a model's understanding step: free text to a structured request.
+function parseAsk(text, els){
+  var t = text.toLowerCase();
+  var nm = t.match(/\b(\d+|one|two|three|four|five|six|an?)\s+(?:more\s+|new\s+|open\s+|good\s+)*(?:idea|question|step|note|risk|action|next)/);
+  var n = nm ? (NUM[nm[1]] || parseInt(nm[1], 10)) : 3;
+  var tm = text.match(/\b(?:about|regarding|around|on|for)\s+(.+?)\s*[.?!]*$/i), topic = tm ? tm[1].replace(/\s+(?:in|to|into|under|near)\s+(?:the\s+)?.*$/i, "").replace(/^(?:the|this|our)\s+board$/i, "").trim() : "";
+  var colors = COLORS.map(function(c){ return {c:c, i:t.search(new RegExp("\\b" + c + "\\b"))}; }).filter(function(x){ return x.i >= 0; }).sort(function(a, b){ return a.i - b.i; }).map(function(x){ return x.c; });
+  var intent = "help";
+  if (/\b(tidy|organi[sz]e|arrange|clean up|align|neaten|straighten|group)/.test(t)) intent = "tidy";
+  else if (/\b(delete|remove|clear|erase|wipe)\b/.test(t)) intent = "clear";
+  else if (/\b(summar|recap|overview|tl;?dr|sum up)/.test(t)) intent = "summary";
+  else if (colors.length && /\b(colou?r|make|turn|paint|change)\b/.test(t)) intent = "color";
+  else if (/\b(question|unknown|risk|missing|gap|concern|unclear)/.test(t)) intent = "questions";
+  else if (/\b(next step|action|decid|decision|to-?do|owner|plan)/.test(t)) intent = "next";
+  else if (/\b(idea|brainstorm|suggest|think of|come up|propose|add)/.test(t)) intent = "ideas";
+  return {intent:intent, n:Math.max(1, Math.min(6, n || 3)), topic:topic, colors:colors};
+}
+function describeAsk(a){
+  var what = {ideas:"add " + a.n + " idea" + (a.n > 1 ? "s" : ""), questions:"add " + a.n + " open question" + (a.n > 1 ? "s" : ""), next:"add " + a.n + " next step" + (a.n > 1 ? "s" : ""), summary:"summarise the board", tidy:"tidy the layout", clear:"delete notes", color:"recolour notes", help:"not a board task I recognise"}[a.intent];
+  return "Goal: " + what + (a.topic ? " · Topic: " + a.topic : "") + (a.colors.length ? " · Colour: " + a.colors.join(" to ") : "");
+}
+// Free-form placement: open space under or beside related notes, never on top of anything.
+function freeSpot(els, w, h, near){
+  var boxes = els.filter(function(e){ return e.type !== "arrow"; }).map(boxOfData);
+  if (!boxes.length) return {x:40, y:40};
+  var hit = function(x, y){ return boxes.some(function(b){ return x < b.x + b.w + 16 && x + w + 16 > b.x && y < b.y + b.h + 16 && y + h + 16 > b.y; }); };
+  var all = boundsOf(els), a = near.length ? boundsOf(near) : all;
+  var c = [[a.x, a.y + a.h + 20], [a.x + a.w + 24, a.y], [a.x - w - 24, a.y], [all.x + all.w + 40, all.y], [all.x, all.y + all.h + 40]];
+  for (var i = 0; i < c.length; i++) if (!hit(c[i][0], c[i][1])) return {x:Math.round(c[i][0]), y:Math.round(c[i][1])};
+  return {x:Math.round(all.x), y:Math.round(all.y + all.h + 40)};
+}
+function noteH(text, w){ return Math.max(92, Math.ceil(text.length * 7.8 / (w - 28)) * 21 + 28); }
+function placeNotes(els, color, texts){
+  var ops = [], ids = [], w = 220, hs = texts.map(function(t){ return noteH(t, w); }), h = hs.reduce(function(a, b){ return a + b + 20; }, -20);
+  var p = freeSpot(els, w, h, els.filter(function(e){ return e.type === "note" && e.color === color; })), y = p.y;
+  texts.forEach(function(t, i){ var id = rid("el_"); ids.push(id); ops.push({op:"create", id:id, data:{type:"note", x:p.x, y:y, w:w, h:hs[i], color:color, text:t}}); y += hs[i] + 20; });
+  return {ops:ops, ids:ids, rect:{x:p.x - 10, y:p.y - 10, w:w + 20, h:h + 20}};
+}
+// Stand-in for a model's planning step: request + board + what the tools returned, to one ops batch.
+function buildWork(agent, ask, els, passages, suggestions){
+  var list = function(a){ return a.map(function(t){ return "• " + t; }).join("\n"); };
+  var notes = els.filter(function(e){ return e.type === "note" || e.type === "shape"; });
+  if (KIND[ask.intent]){
+    var K = KIND[ask.intent], have = els.map(function(e){ return e.text; }), texts = [], srcs = [];
+    passages.slice(0, Math.min(2, ask.n - 1)).forEach(function(p){ var t = "Evidence: " + p.passage + " (source: " + p.title + ")"; if (have.indexOf(t) < 0){ texts.push(t); if (srcs.indexOf(p.title) < 0) srcs.push(p.title); } });
+    (suggestions || GENERIC[ask.intent]).forEach(function(t){ if (texts.length < ask.n && have.indexOf(t) < 0 && texts.indexOf(t) < 0) texts.push(t); });
+    if (!texts.length) return {none:"I have nothing new to add; everything I would suggest is already on the board."};
+    if (ask.intent === "next" && /owner/i.test(agent.instructions || "")) texts = texts.map(function(t){ return /source:/.test(t) ? t : t + " · owner: TBD"; });
+    var p = placeNotes(els, K.color, texts), where = "open space beside the other " + K.color + " notes";
+    if (ask.intent === "next"){
+      var src = els.filter(function(e){ return e.type === "note" && e.color === "yellow"; }).sort(function(a, c){ return a.y - c.y; })[0];
+      if (src) p.ops.push({op:"create", data:{type:"arrow", from:src.id, to:p.ids[0], label:"leads to"}});
+    }
+    var tail = srcs.length ? "\n\nGrounded in: " + srcs.join(", ") + "." : "";
+    return {ops:p.ops, claim:{target:{rect:p.rect}, note:"Adding " + K.word + "s"}, said:"Added " + texts.length + " " + K.word + (texts.length > 1 ? "s" : "") + " in " + where + ":\n" + list(texts) + tail, chatOnly:"Here is what I would add:\n" + list(texts) + tail};
+  }
+  if (ask.intent === "summary"){
+    if (!notes.length) return {none:"The board has no notes yet, so there is nothing to summarise."};
+    var cut = function(t){ t = t.replace(/\s+/g, " "); return t.length > 44 ? t.slice(0, 42) + "…" : t; }, used = {}, lines = [];
+    var some = function(k, n){ return k.slice(0, n).map(function(e){ return cut(e.text); }).join("; ") + (k.length > n ? "; +" + (k.length - n) + " more" : ""); };
+    COLORS.forEach(function(c){ var k = notes.filter(function(e){ return !used[e.id] && e.color === c; }); if (k.length) lines.push(c[0].toUpperCase() + c.slice(1) + " (" + k.length + "): " + some(k, 3)); });
+    var arrows = els.filter(function(e){ return e.type === "arrow"; }).length;
+    var sum = "Summary: " + notes.length + " notes" + (arrows ? ", " + arrows + " arrow" + (arrows > 1 ? "s" : "") : "") + ".\n" + list(lines), sw = 360, sh = 70 + lines.length * 40, sp = freeSpot(els, sw, sh, []);
+    return {ops:[{op:"create", data:{type:"note", x:sp.x, y:sp.y, w:sw, h:sh, color:"white", text:sum}}], claim:{target:{rect:{x:sp.x - 10, y:sp.y - 10, w:sw + 20, h:sh + 20}}, note:"Writing a summary"}, said:sum + "\n\nI pinned this as a note in open space on the board.", chatOnly:sum};
+  }
+  if (ask.intent === "tidy"){
+    var ops = [];
+    var loose = els.filter(function(e){ return e.type === "note"; }), cols = 0;
+    if (loose.length){
+      // Columns by colour, starting at the notes' own corner, pushed down until they clear text and shapes.
+      var o = boundsOf(loose), groups = [], tw = -28, th = 0;
+      COLORS.forEach(function(c){
+        var k = loose.filter(function(e){ return e.color === c; }).sort(function(a, b2){ return a.y - b2.y || a.x - b2.x; });
+        if (!k.length) return;
+        var g = {k:k, w:Math.max.apply(null, k.map(function(e){ return e.w; })), h:k.reduce(function(a, e){ return a + e.h + 16; }, -16)};
+        groups.push(g); tw += g.w + 28; th = Math.max(th, g.h);
+      });
+      cols = groups.length;
+      var fixed = els.filter(function(e){ return e.type === "text" || e.type === "shape"; }).map(boxOfData), oy = o.y, moved = true, guard = 0;
+      while (moved && guard++ < 30){
+        moved = false;
+        fixed.forEach(function(b){ if (o.x < b.x + b.w + 16 && o.x + tw + 16 > b.x && oy < b.y + b.h + 16 && oy + th + 16 > b.y){ oy = b.y + b.h + 24; moved = true; } });
+      }
+      var cx = o.x;
+      groups.forEach(function(g){
+        var cy = oy;
+        g.k.forEach(function(e){ if (e.x !== cx || e.y !== cy) ops.push({op:"update", id:e.id, ifVersion:e.version, data:{x:cx, y:cy}}); cy += e.h + 16; });
+        cx += g.w + 28;
+      });
+    }
+    if (!ops.length) return {none:"The notes are already lined up, so I changed nothing."};
+    var bb = boundsOf(els);
+    return {ops:ops.slice(0, LIMITS.ops), claim:{target:{rect:{x:bb.x - 12, y:bb.y - 12, w:bb.w + 24, h:bb.h + 24}}, note:"Tidying the board"}, said:"Tidied the board: lined the notes up in " + cols + " column" + (cols > 1 ? "s" : "") + " by colour. Shapes, text and arrows stay where they were.", chatOnly:"I would line the notes up by colour (" + ops.length + " moves)."};
+  }
+  var from = ask.intent === "clear" ? ask.colors[0] : (ask.colors.length > 1 ? ask.colors[0] : null), to = ask.colors[ask.colors.length - 1];
+  var pool = notes.filter(function(e){ return !from || e.color === from; });
+  var scope = (from ? from + " " : "") + "notes";
+  if (!pool.length) return {none:"I found no " + scope + "."};
+  var target = {target:{elementIds:pool.map(function(e){ return e.id; })}, note:ask.intent === "clear" ? "Deleting notes" : "Recolouring notes"};
+  if (ask.intent === "clear") return {ops:pool.slice(0, LIMITS.ops).map(function(e){ return {op:"delete", id:e.id, ifVersion:e.version}; }), claim:target, said:"Deleted " + pool.length + " " + scope + ".", chatOnly:"I would delete " + pool.length + " " + scope + "."};
+  var ch = pool.filter(function(e){ return e.color !== to; });
+  if (!ch.length) return {none:"Those notes are already " + to + "."};
+  return {ops:ch.slice(0, LIMITS.ops).map(function(e){ return {op:"update", id:e.id, ifVersion:e.version, data:{color:to}}; }), claim:target, said:"Made " + ch.length + " " + scope + " " + to + ".", chatOnly:"I would make " + ch.length + " " + scope + " " + to + "."};
+}
+// The runner. Built-in runs record steps directly; a webhook harness reports them through the API.
+function dispatchRun(runId){
+  var run = findRun(runId); if (!run || run.status !== "queued") return;
+  var a = db.agents.filter(function(x){ return x.id === run.agentId; })[0];
+  var key = a.key, hook = a.runner.kind === "webhook", boardId = run.boardId, text = run.message, claimId = null;
+  run.status = "running";
+  if (hook) addStep(runId, {kind:"tool", name:"webhook", note:"Run delivered to the harness at " + a.runner.url + " (simulated in this page)", status:"done"});
+  touch();
+  function alive(){ var r = findRun(runId); return !!r && r.status === "running"; }
+  function step(kind, name, note, status){
+    var d = {kind:kind, name:name, note:note || "", status:status || "running"};
+    if (!hook) return addStep(runId, d).id;
+    var r = api(key, "POST", "/runs/" + runId + "/steps", d); return r.status < 300 ? r.body.id : null;
+  }
+  function set(id, status, note){
+    var d = {id:id, status:status}; if (note != null) d.note = note;
+    if (hook) api(key, "POST", "/runs/" + runId + "/steps", d); else setStep(runId, d);
+  }
+  function release(){ if (claimId && alive()) mcp(key, "release_claim", {boardId:boardId, claimId:claimId}); claimId = null; }
+  function finish(d){ release(); if (!alive()) return; if (hook) api(key, "POST", "/runs/" + runId + "/finish", d); else finishRun(runId, d); }
+  function end(reply){ finish({reply:reply}); }
+  function fail(sid, r){ set(sid, "failed", r.body.error.code); finish({error:{code:r.body.error.code, message:r.body.error.message}}); }
+  function later(fn, ms){ setTimeout(function(){ if (!alive()){ claimId = null; return; } fn(); }, ms || 480); }
+
+  step("prompt", "instructions", a.instructions || "No custom instructions; using defaults", "done");
+  var s1 = step("mcp", "read_board");
+  later(function(){
+    var d = mcp(key, "read_board", {boardId:boardId}); if (d.status !== 200) return fail(s1, d);
+    var r = mcp(key, "read_board", {boardId:boardId, format:"json"}); if (r.status !== 200) return fail(s1, r);
+    var els = r.body.elements, ask = parseAsk(text, els), passages = [], suggestions = null;
+    set(s1, "done", els.length + " elements, seq " + r.body.seq);
+    step("plan", "plan", describeAsk(ask), "done");
+    if (ask.intent === "help") return later(function(){ end(HELP); });
+    if (ask.intent === "clear" && !ask.colors.length) return later(function(){ end("Which notes should I delete? Name a colour, for example “delete the blue notes”."); });
+    function work(){
+      var w = buildWork(a, ask, els, passages, suggestions);
+      if (w.none) return end(w.none);
+      if (a.scopes.indexOf("boards:write") < 0){
+        step("mcp", "write_board", "Skipped: this agent's key is read-only", "skipped");
+        return later(function(){ end(w.chatOnly + "\n\nMy key is read-only, so I did not change the board."); });
+      }
+      var s4 = step("mcp", "claim", w.claim.note);
+      later(function(){
+        var c = mcp(key, "claim", {boardId:boardId, target:w.claim.target, note:w.claim.note}); if (c.status !== 201) return fail(s4, c);
+        claimId = c.body.id; set(s4, "done");
+        var s5 = step("mcp", "write_board", w.ops.length + " operation" + (w.ops.length > 1 ? "s" : "") + " in one batch");
+        later(function(){
+          viaRun = runId; var wr = mcp(key, "write_board", {boardId:boardId, ops:w.ops, idempotencyKey:runId + "-write-0001"}); viaRun = null; if (wr.status !== 200) return fail(s5, wr);
+          set(s5, "done", wr.body.results.length + " elements changed, seq " + wr.body.seq);
+          var s6 = step("mcp", "release_claim"); release(); set(s6, "done");
+          end(w.said);
+        }, 1300);
+      });
+    }
+    function library(){
+      if (!(a.mcpServers || []).some(function(s){ return s.name === "idea-library"; })){ step("mcp", "idea-library.suggest", "Skipped: no external MCP server connected; using my own list", "skipped"); return later(work); }
+      if (!ask.topic){ step("mcp", "idea-library.suggest", "Skipped: no topic given; using my own list", "skipped"); return later(work); }
+      var s7 = step("mcp", "idea-library.suggest", "External MCP server · topic “" + ask.topic + "”");
+      later(function(){
+        var x = mcpExternal(a, "idea-library", "suggest", {kind:ask.intent, topic:ask.topic}); if (x.status !== 200) return fail(s7, x);
+        suggestions = x.body.items; set(s7, "done", suggestions.length + " suggestions from the idea-library server"); later(work);
+      });
+    }
+    if (!KIND[ask.intent]) return later(work);
+    if ((a.capabilities || []).indexOf("knowledge") < 0){ step("rag", "search_knowledge", "Skipped: this agent has no knowledge capability", "skipped"); return later(library); }
+    if (!ask.topic){ step("rag", "search_knowledge", "Skipped: no topic to search for", "skipped"); return later(library); }
+    var s3 = step("rag", "search_knowledge", "“" + ask.topic + "”");
+    later(function(){
+      var k = mcp(key, "search_knowledge", {query:ask.topic}); if (k.status !== 200) return fail(s3, k);
+      passages = k.body.items;
+      set(s3, "done", passages.length ? passages.length + " passage" + (passages.length > 1 ? "s" : "") + " from " + passages.map(function(p){ return p.title; }).filter(function(t, i, arr){ return arr.indexOf(t) === i; }).join(", ") : "No matching passages");
+      later(library);
+    });
+  });
+}
+
+/* =====================================================================
+   PART 3. The browser app. Talks to the backend only through
+   api("session", ...), the same door a real frontend would use.
+   ===================================================================== */
+var ui = {top:"boards", boardId:null, tool:"select", sel:[], zoom:1, px:40, py:40, panel:window.innerWidth >= 900, undo:[], redo:[], editing:null, busy:false, pending:false, arrowFrom:null, filter:"all", bfilter:"", titleEdit:false};
+var cur = {els:{}, order:[]}, gest = null, ptrs = {}, lastTap = {id:null, t:0};
+
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+function av(a, live){ return '<span class="av' + (a.kind === "agent" ? " agent" : "") + (live ? " live" : "") + '" title="' + esc(a.name) + '">' + esc(a.name[0]) + '</span>'; }
+function toast(msg, label, fn){
+  var t = $("toast"); t.textContent = msg;
+  if (label){ var b = document.createElement("button"); b.className = "tact"; b.textContent = label; b.onclick = function(){ t.classList.remove("show"); fn(); }; t.appendChild(b); }
+  t.classList.toggle("act", !!label); t.classList.add("show"); clearTimeout(toast.t);
+  toast.t = setTimeout(function(){ t.classList.remove("show"); }, label ? 8000 : 3200);
+}
+function ago(iso){ if (!iso) return "never"; var s = (Date.now() - new Date(iso).getTime()) / 1000; if (s < 10) return "just now"; if (s < 60) return Math.floor(s) + " s ago"; if (s < 3600) return Math.floor(s / 60) + " min ago"; if (s < 86400) return Math.floor(s / 3600) + " hr ago"; return Math.floor(s / 86400) + " d ago"; }
+function sess(method, path, body){ var r = api("session", method, path, body); save(); return r; }
+function boundsOf(els){
+  var bx = els.filter(function(e){ return e.type !== "arrow"; }).map(boxOfData);
+  if (!bx.length) return {x:0, y:0, w:600, h:400};
+  var x1 = Math.min.apply(null, bx.map(function(b){ return b.x; })), y1 = Math.min.apply(null, bx.map(function(b){ return b.y; }));
+  var x2 = Math.max.apply(null, bx.map(function(b){ return b.x + b.w; })), y2 = Math.max.apply(null, bx.map(function(b){ return b.y + b.h; }));
+  return {x:x1, y:y1, w:x2 - x1, h:y2 - y1};
+}
+function closeModal(){ $("modal").innerHTML = ""; }
+function modal(html){ $("modal").innerHTML = '<div class="veil"><div class="modal" role="dialog" aria-modal="true">' + html + '</div></div>'; }
+function confirmM(title, text, okLabel, fn){
+  modal('<h2>' + esc(title) + '</h2><p class="muted" style="margin:0">' + esc(text) + '</p><div class="acts"><button class="btn" id="cno">Cancel</button><button class="btn pri" id="cyes">' + esc(okLabel) + '</button></div>');
+  $("cno").onclick = closeModal; $("cyes").onclick = function(){ closeModal(); fn(); };
+}
+var ICON = {
+  boards:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
+  agents:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="8" width="16" height="11" rx="3"/><path d="M12 8V4M9 13v2M15 13v2"/></svg>',
+  activity:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>',
+  developers:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg>',
+  settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>'
+};
+var NAV = [["boards","Boards"],["agents","Agents"],["activity","Activity"],["developers","Developers"],["settings","Settings"]];
+var VIEWS = {auth:vAuth, notfound:vNotFound, boards:vBoards, board:vBoard, agents:vAgents, activity:vActivity, developers:vDevelopers, settings:vSettings};
+
+function route(){
+  var parts = (ui.path || "boards").split("/");
+  ui.top = !db.session ? "auth" : (VIEWS[parts[0]] && parts[0] !== "auth" ? parts[0] : "notfound");
+  document.body.classList.toggle("anon", !db.session);
+  document.body.classList.toggle("onboard", ui.top === "board");
+  $("me").innerHTML = av(ME) + '<span class="nm">' + esc(ME.name) + '</span>'; $("me").title = "Account and settings"; $("me").onclick = function(){ go("settings"); };
+  ui.editing = null; ui.busy = false; gest = null; ptrs = {};
+  $("nav").innerHTML = NAV.map(function(n){ return '<a href="#/' + n[0] + '" class="' + (ui.top === n[0] || (ui.top === "board" && n[0] === "boards") ? "on" : "") + '">' + ICON[n[0]] + '<span>' + n[1] + '</span></a>'; }).join("");
+  var v = $("view"); v.className = "view" + (ui.top === "board" ? " flush" : "");
+  VIEWS[ui.top](v, parts[1]);
+}
+// Navigation keeps its own path, so it works even where the address bar's # part is blocked (embedded previews).
+function hashPath(){ try { return location.hash.replace(/^#\/?/, ""); } catch (e) { return ""; } }
+function go(path){ ui.path = path; try { if (hashPath() !== path) location.hash = "#/" + path; } catch (e) {} route(); }
+window.addEventListener("hashchange", function(){ var h = hashPath(); if (h && h !== ui.path){ ui.path = h; route(); } });
+document.addEventListener("click", function(e){ var a = e.target.closest && e.target.closest('a[href^="#/"]'); if (a){ e.preventDefault(); go(a.getAttribute("href").slice(2)); } });
+// ---------- Backend contract behind each page ----------
+var PAGE_API = {
+  auth:[["POST","/auth/signup","Create the account and start a session"],["POST","/auth/login","Start a session"]],
+  boards:[["GET","/boards","List boards"],["GET","/boards/{id}/elements","Elements for each card's miniature"],["POST","/boards","Create a board"],["DELETE","/boards/{id}","Move a board to the trash"],["GET","/boards?trashed=true","Trash list"],["POST","/boards/{id}/restore","Restore from the trash"],["WS","/boards/{id}/live","Who is on each board now"]],
+  board:[["GET","/boards/{id}","Title and seq"],["PATCH","/boards/{id}","Rename"],["GET","/boards/{id}/elements","Everything on the canvas"],["POST","/boards/{id}/ops","Every edit: create, update, delete, reorder"],["WS","/boards/{id}/live","Live changes, presence, claims, runs"],["GET","/boards/{id}/claims","Claim frames"],["GET","/boards/{id}/digest","Digest button"],["GET","/activity?boardId=","Activity panel"],["GET","/agents","Agent picker in the chat"],["GET","/boards/{id}/runs","Past chat runs"],["POST","/boards/{id}/runs","Ask an agent"],["POST","/runs/{runId}/cancel","Stop"],["POST","/runs/{runId}/revert","Undo an agent run"],["POST","/boards/{id}/batches/{seq}/revert","Undo one change from the activity panel"]],
+  agents:[["GET","/agents","List agents"],["POST","/agents","Connect an agent; returns the key once"],["PATCH","/agents/{id}","Edit name, scopes, board access, capabilities, instructions, MCP servers, runner"],["POST","/agents/{id}/rotate-key","Issue a new key"],["DELETE","/agents/{id}","Revoke"]],
+  activity:[["GET","/activity","Feed, with ?actorKind= and ?boardId= filters and cursor paging"],["GET","/boards","Board filter list"]],
+  developers:[["GET","/agents","\"Act as\" list"],["ANY","/api/v1/…","The console can call every endpoint"],["MCP","/mcp","The console can call every MCP tool"]],
+  settings:[["GET","/settings","Read settings"],["PATCH","/settings","Workspace name and the two safety switches"],["GET","/knowledge","List documents"],["POST","/knowledge","Add a document"],["DELETE","/knowledge/{id}","Remove a document"],["GET","/me","Account card"],["POST","/auth/logout","Sign out"]]
+};
+function contractModal(){
+  var rows = PAGE_API[ui.top] || [], name = {auth:"Sign in", boards:"Boards", board:"Board canvas", agents:"Agents", activity:"Activity", developers:"Developers", settings:"Settings"}[ui.top] || "This page";
+  modal('<h2>Backend contract: ' + name + '</h2><p class="muted" style="margin:0">The endpoints this page uses, as defined in 02-contract-prompt.md. All paths are under <code>/api/v1</code>.</p><div class="tw" style="margin-top:10px"><table><tbody>' +
+    rows.map(function(r){ return '<tr><td style="white-space:nowrap"><span class="tag">' + r[0] + '</span></td><td><code>' + esc(r[1]) + '</code><div class="muted" style="font-size:13px">' + r[2] + '</div></td></tr>'; }).join("") +
+    '</tbody></table></div><div class="acts"><button class="btn pri" id="cno">Close</button></div>');
+  $("cno").onclick = closeModal;
+}
+// Called after anything changes in the backend. Stands in for the WebSocket feed.
+function refresh(){
+  if (!$("view")) return;
+  if (ui.busy){ ui.pending = true; return; }
+  if (ui.top === "board"){ if (!db.boards[ui.boardId] || db.boards[ui.boardId].deletedAt){ go("boards"); return; } drawBar(); drawSurface(); drawPanel(); drawChatLog(); }
+  else if (ui.top === "developers") drawCalls();
+  else if (ui.top === "boards" || ui.top === "agents" || ui.top === "activity") VIEWS[ui.top]($("view"));
+}
+
+// ---------- Sign in, sign up, not found ----------
+function vAuth(v){
+  var up = !db.user || ui.authMode === "up";
+  if (db.user) up = false;
+  v.innerHTML = '<div class="card auth"><div class="brand" style="padding:0"><i class="logo" style="margin:0">A</i><b>Agent<span>Board</span></b></div>' +
+    '<h1>' + (up ? "Create your account" : "Sign in") + '</h1><p class="muted" style="margin:0">' + (up ? "One workspace, shared with your agents." : "Welcome back.") + '</p>' +
+    '<form id="af">' + (up ? '<label for="fn">Name</label><input type="text" id="fn" maxlength="60" autocomplete="name">' : "") +
+    '<label for="fe">Email</label><input type="email" id="fe" autocomplete="email" value="' + esc(db.user ? db.user.email : "") + '">' +
+    '<label for="fp">Password</label><input type="password" id="fp" autocomplete="' + (up ? "new-password" : "current-password") + '">' +
+    '<button class="btn pri">' + (up ? "Create account" : "Sign in") + '</button></form>' +
+    (up ? '<button class="alt" id="demo">Skip: use a demo account</button>' : (db.user.email === "you@example.com" ? '<p class="muted" style="font-size:13px;text-align:center;margin:14px 0 0">Demo account password: <code>demo-password</code></p>' : "")) +
+    '<p class="muted" style="font-size:12px;margin:16px 0 0">Prototype: the account lives only in this browser. Do not use a real password.</p></div>';
+  var submit = function(path, body){ var r = api("session", "POST", path, body); save(); if (r.status >= 300){ toast(r.body.error.message); return; } if (!VIEWS[(ui.path || "boards").split("/")[0]]) ui.path = "boards"; go(ui.path || "boards"); };
+  $("af").onsubmit = function(e){ e.preventDefault(); if (up) submit("/auth/signup", {name:$("fn").value, email:$("fe").value, password:$("fp").value}); else submit("/auth/login", {email:$("fe").value, password:$("fp").value}); };
+  if ($("demo")) $("demo").onclick = function(){ submit("/auth/signup", {name:"You", email:"you@example.com", password:"demo-password"}); };
+}
+function vNotFound(v){ v.innerHTML = '<div class="card sect"><h2>Page not found</h2><p>There is nothing at this address.</p><div class="acts" style="justify-content:flex-start"><a class="btn pri" href="#/boards">Go to Boards</a></div></div>'; }
+
+// ---------- Boards list ----------
+function vBoards(v){
+  var boards = sess("GET", "/boards").body.items, trash = sess("GET", "/boards?trashed=true").body.items;
+  v.innerHTML = '<div class="head"><div class="grow"><h1>Boards</h1><p>' + esc(db.settings.name) + ' · shared with every connected agent.</p></div>' + (trash.length ? '<button class="btn" id="trash">Trash (' + trash.length + ')</button>' : "") + '<button class="btn pri" id="newb">New board</button></div>' +
+    (boards.length ? '<div class="grid">' + boards.map(function(b){
+      var els = b.order.map(function(id){ return db.boards[b.id].els[id]; }).filter(function(e){ return e.type !== "arrow"; }), bb = boundsOf(els), k = Math.min(210 / bb.w, 84 / bb.h, .5);
+      var who = [ME].concat(db.agents.filter(function(a){ return busyAgents(b.id).indexOf(a.id) >= 0; }).map(function(a){ return {kind:"agent", name:a.name}; }));
+      return '<div class="card bcard" data-b="' + b.id + '" tabindex="0"><div class="thumb">' + els.map(function(e){ var x = boxOfData(e); return '<i class="t-' + e.type + ' c-' + (e.color || "white") + '" style="left:' + (12 + (x.x - bb.x) * k) + 'px;top:' + (10 + (x.y - bb.y) * k) + 'px;width:' + Math.max(3, x.w * k) + 'px;height:' + Math.max(3, x.h * k) + 'px"></i>'; }).join("") + '</div>' +
+        '<div class="bmeta"><div class="grow"><b>' + esc(b.title) + '</b><small>' + b.elementCount + ' elements · ' + ago(b.updatedAt) + '</small></div><div>' + who.map(function(a){ return av(a, a.kind === "agent"); }).join("") + '</div><button class="btn sm danger" data-del="' + b.id + '" aria-label="Delete board">Delete</button></div></div>';
+    }).join("") + '</div>' : '<div class="card sect"><h2>No boards yet</h2><p>Create the first one and invite an agent to it.</p></div>');
+  v.querySelectorAll("[data-b]").forEach(function(el){ el.onclick = function(e){ if (e.target.closest("[data-del]")) return; go("board/" + el.dataset.b); }; });
+  v.querySelectorAll("[data-del]").forEach(function(el){ el.onclick = function(){ var id = el.dataset.del; sess("DELETE", "/boards/" + id); vBoards(v); toast("Board moved to the trash", "Undo", function(){ sess("POST", "/boards/" + id + "/restore"); if (ui.top === "boards") vBoards($("view")); toast("Board restored"); }); }; });
+  if ($("trash")) $("trash").onclick = function(){
+    modal('<h2>Trash</h2><p class="muted" style="margin:0">Deleted boards stay here for 30 days.</p>' + trash.map(function(b){ return '<div class="row"><div class="grow"><b>' + esc(b.title) + '</b><div class="muted" style="font-size:13px">' + b.elementCount + ' elements · deleted ' + ago(b.deletedAt) + '</div></div><button class="btn sm" data-res="' + b.id + '">Restore</button></div>'; }).join("") + '<div class="acts"><button class="btn pri" id="cno">Close</button></div>');
+    $("cno").onclick = closeModal;
+    document.querySelectorAll("#modal [data-res]").forEach(function(x){ x.onclick = function(){ sess("POST", "/boards/" + x.dataset.res + "/restore"); closeModal(); toast("Board restored"); vBoards(v); }; });
+  };
+  $("newb").onclick = function(){ var r = sess("POST", "/boards", {title:"Untitled board"}); ui.renameOnOpen = r.body.id; go("board/" + r.body.id); };
+}
+
+// ---------- Board canvas ----------
+function vBoard(v, id){
+  if (!db.boards[id] || db.boards[id].deletedAt){ go("boards"); return; }
+  if (ui.boardId !== id){ ui.undo = []; ui.redo = []; }
+  ui.boardId = id; ui.sel = []; ui.tool = "select"; ui.arrowFrom = null; ui.titleEdit = false;
+  v.innerHTML = '<div class="bar" id="bar"></div>' +
+    '<div class="stage"><div class="cv"><div class="vp" id="vp"><div class="surface" id="surface"></div></div><div class="zoomc" id="zoomc"></div><div class="dock" id="tools"></div><div class="selbar" id="selbar"></div><div class="chat hide" id="chat"></div><div class="empty hide" id="empty"><b>This board is empty</b>Pick a tool below and tap the board, or tap Agent and ask for ideas.</div><div class="marq hide" id="marq"></div></div><aside class="panel' + (ui.panel ? "" : " hide") + '" id="panel"></aside></div>';
+  var vp = $("vp");
+  vp.addEventListener("pointerdown", onDown); vp.addEventListener("pointermove", onMove);
+  vp.addEventListener("pointerup", onUp); vp.addEventListener("pointercancel", onUp);
+  vp.addEventListener("wheel", onWheel, {passive:false});
+  $("tools").onclick = onTool; $("zoomc").onclick = onTool; $("selbar").onclick = onSelBar; $("selbar").onchange = onSelBar;
+  drawBar(); drawSurface(); drawPanel(); fit(); chatShell();
+  if (ui.renameOnOpen === id){ ui.renameOnOpen = null; $("ttl").click(); }
+}
+function loadCur(){
+  var r = sess("GET", "/boards/" + ui.boardId + "/elements").body;
+  cur = {els:{}, order:r.order}; r.elements.forEach(function(e){ cur.els[e.id] = e; });
+  ui.sel = ui.sel.filter(function(id){ return cur.els[id]; });
+}
+function drawBar(){
+  if (ui.titleEdit) return;
+  var b = db.boards[ui.boardId], live = busyAgents(b.id);
+  var who = [ME].concat(db.agents.filter(function(a){ return live.indexOf(a.id) >= 0 || liveClaims(b.id).some(function(c){ return c.actor.id === a.id; }); }).map(function(a){ return {kind:"agent", name:a.name}; }));
+  $("bar").innerHTML = '<a class="btn sm" href="#/boards" aria-label="Back to boards">‹<span class="lbl"> Boards</span></a><button class="title grow" id="ttl" title="Rename">' + esc(b.title) + '</button>' +
+    '<div style="display:flex">' + who.map(function(a){ return av(a, a.kind === "agent"); }).join("") + '</div>' +
+    '<button class="btn sm" id="dig" title="See this board the way an agent reads it">Agent view</button><button class="btn sm' + (ui.panel ? " on" : "") + '" id="tog">Activity</button>';
+  $("ttl").onclick = function(){
+    ui.titleEdit = true;
+    var inp = document.createElement("input"); inp.className = "title grow"; inp.value = b.title; inp.maxLength = 120;
+    $("ttl").replaceWith(inp); inp.focus(); inp.select();
+    var done = function(saveIt){ if (!ui.titleEdit) return; ui.titleEdit = false; if (saveIt && inp.value.trim() && inp.value.trim() !== b.title) sess("PATCH", "/boards/" + b.id, {title:inp.value}); drawBar(); drawPanel(); };
+    inp.onblur = function(){ done(true); };
+    inp.onkeydown = function(e){ if (e.key === "Enter") inp.blur(); if (e.key === "Escape") done(false); };
+  };
+  $("tog").onclick = function(){ ui.panel = !ui.panel; $("panel").classList.toggle("hide", !ui.panel); drawBar(); };
+  $("dig").onclick = function(){ modal('<h2>What an agent reads</h2><p class="muted" style="margin:0">The digest: <code>GET /boards/{id}/digest</code></p><pre>' + esc(sess("GET", "/boards/" + b.id + "/digest").body.text) + '</pre><div class="acts"><button class="btn pri" id="cno">Close</button></div>'); $("cno").onclick = closeModal; };
+}
+var TICON = {
+  select:'<path d="M5 3l14 8-6.5 1.8L10 19z"/>',
+  hand:'<path d="M8 12V5.5a1.5 1.5 0 013 0V11m0-6.5a1.5 1.5 0 013 0V11m0-4.5a1.5 1.5 0 013 0V15a6 6 0 01-6 6h-.5a6 6 0 01-5.2-3l-2-3.6a1.5 1.5 0 012.6-1.5L8 14.5"/>',
+  text:'<path d="M5 6h14M12 6v13"/>',
+  note:'<path d="M5 5h14v9l-5 5H5zM14 19v-5h5"/>',
+  shape:'<rect x="4" y="4" width="16" height="16" rx="4"/>',
+  arrow:'<path d="M5 19L19 5M10 5h9v9"/>'
+};
+function drawTools(){
+  var T = [["select","Select"],["hand","Pan"],["text","Text"],["note","Note"],["shape","Shape"],["arrow","Arrow"]];
+  $("tools").innerHTML = T.map(function(t){ return '<button class="' + (ui.tool === t[0] ? "on" : "") + '" data-tool="' + t[0] + '" title="' + t[1] + ' (' + {select:"V", hand:"H", text:"T", note:"N", shape:"S", arrow:"A"}[t[0]] + ')" aria-label="' + t[1] + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round">' + TICON[t[0]] + '</svg><em>' + t[1] + '</em></button>'; }).join("") +
+    '<span class="sep"></span><button class="ag' + (chat.open ? " on" : "") + '" data-act="agent" title="Ask an agent to work on this board">Agent</button>';
+  $("zoomc").innerHTML = '<button class="btn sm" data-act="undo" aria-label="Undo" title="Undo"' + (ui.undo.length ? "" : " disabled") + '>↶</button><button class="btn sm" data-act="redo" aria-label="Redo" title="Redo"' + (ui.redo.length ? "" : " disabled") + '>↷</button>' +
+    '<span class="sep"></span><button class="btn sm" data-act="out" aria-label="Zoom out">−</button><span class="zl">' + Math.round(ui.zoom * 100) + '%</span><button class="btn sm" data-act="in" aria-label="Zoom in">+</button><button class="btn sm" data-act="fit">Fit</button>';
+  $("vp").classList.toggle("placing", ui.tool !== "select" && ui.tool !== "hand");
+  $("vp").classList.toggle("hand", ui.tool === "hand");
+}
+function onTool(e){
+  var t = e.target.closest("button"); if (!t) return;
+  if (ui.editing) commitEdit();
+  if (t.dataset.tool){
+    ui.tool = t.dataset.tool; ui.arrowFrom = null;
+    if (ui.tool === "arrow") toast("Tap the element the arrow starts from"); else if (ui.tool !== "select" && ui.tool !== "hand") toast("Tap the board to place it");
+    drawTools(); return;
+  }
+  var a = t.dataset.act;
+  if (a === "agent"){ chat.open = !chat.open; chatShell(); if (chat.open && $("cin") && window.innerWidth >= 760) $("cin").focus(); } else if (a === "undo") undo(); else if (a === "redo") redo(); else if (a === "fit") fit();
+  else if (a === "in" || a === "out"){ var r = $("vp").getBoundingClientRect(); zoomAt(r.width / 2, r.height / 2, ui.zoom * (a === "in" ? 1.25 : 0.8)); }
+}
+function applyT(){ $("surface").style.transform = "translate(" + ui.px + "px," + ui.py + "px) scale(" + ui.zoom + ")"; $("surface").style.setProperty("--inv", 1 / ui.zoom); var z = document.querySelector(".zl"); if (z) z.textContent = Math.round(ui.zoom * 100) + "%"; }
+function zoomAt(cx, cy, z){ z = Math.max(.25, Math.min(2, z)); ui.px = cx - (cx - ui.px) / ui.zoom * z; ui.py = cy - (cy - ui.py) / ui.zoom * z; ui.zoom = z; applyT(); }
+function fit(){
+  var r = $("vp").getBoundingClientRect(), b = boundsOf(Object.keys(cur.els).map(function(k){ return cur.els[k]; }));
+  var z = Math.max(.3, Math.min(1, (r.width - 60) / b.w, (r.height - 90) / b.h));
+  ui.zoom = z; ui.px = Math.max(24, (r.width - b.w * z) / 2) - b.x * z; ui.py = 44 - b.y * z; applyT();
+}
+function node(id){ return $("surface").querySelector('[data-id="' + id + '"]'); }
+function boxNow(el){
+  var o = (gest && gest.over && gest.over[el.id]) || {}, x = o.x != null ? o.x : el.x, y = o.y != null ? o.y : el.y;
+  if (el.w != null) return {x:x, y:y, w:o.w || el.w, h:o.h || el.h};
+  var n = node(el.id); return {x:x, y:y, w:n ? n.offsetWidth : 80, h:n ? n.offsetHeight : 24};
+}
+function drawSurface(){
+  loadCur();
+  $("empty").classList.toggle("hide", cur.order.length > 0 || chat.open);
+  var one = ui.sel.length === 1;
+  var html = cur.order.map(function(id){
+    var el = cur.els[id]; if (el.type === "arrow") return "";
+    var sel = ui.sel.indexOf(id) >= 0, cls = "el " + el.type + (sel ? " sel" : ""), st = "left:" + el.x + "px;top:" + el.y + "px;", inner = "";
+    if (el.w != null) st += "width:" + el.w + "px;" + (el.type === "note" ? "min-height:" : "height:") + el.h + "px;";
+    if (el.type === "note") cls += " c-" + el.color;
+    if (el.type === "text") cls += " s-" + el.size;
+    if (el.type === "shape") inner += '<i class="bg c-' + el.color + ' k-' + el.kind + '"></i>';
+    inner += '<div class="txt">' + esc(el.text) + '</div>';
+    if (el.updatedBy.kind === "agent") inner += '<span class="mark" title="Last changed by ' + esc(el.updatedBy.name) + ', ' + ago(el.updatedAt) + '">' + esc(el.updatedBy.name[0]) + '</span>';
+    if (sel && one && el.w != null) inner += '<span class="rh"></span>';
+    return '<div class="' + cls + '" data-id="' + id + '" style="' + st + '">' + inner + '</div>';
+  }).join("");
+  html += '<svg class="arrows" id="arrows"></svg><div id="claims"></div>';
+  $("surface").innerHTML = html;
+  drawArrows(); drawClaims(); drawTools(); drawSelBar(); applyT();
+}
+function drawArrows(){
+  var edge = function(b, tx, ty){ var cx = b.x + b.w / 2, cy = b.y + b.h / 2, dx = tx - cx, dy = ty - cy; if (!dx && !dy) return {x:cx, y:cy}; var s = Math.min(dx ? (b.w / 2 + 4) / Math.abs(dx) : Infinity, dy ? (b.h / 2 + 4) / Math.abs(dy) : Infinity); return {x:cx + dx * s, y:cy + dy * s}; };
+  var out = '<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--ink)"/></marker></defs>';
+  cur.order.forEach(function(id){
+    var a = cur.els[id]; if (a.type !== "arrow" || !cur.els[a.from] || !cur.els[a.to]) return;
+    var A = boxNow(cur.els[a.from]), B = boxNow(cur.els[a.to]);
+    var p = edge(A, B.x + B.w / 2, B.y + B.h / 2), q = edge(B, A.x + A.w / 2, A.y + A.h / 2), c = 'x1="' + p.x + '" y1="' + p.y + '" x2="' + q.x + '" y2="' + q.y + '"';
+    out += '<g class="arw' + (ui.sel.indexOf(id) >= 0 ? " sel" : "") + '" data-id="' + id + '"><line class="hit" ' + c + '/><line class="ln" ' + c + ' marker-end="url(#ah)"/>' + (a.label ? '<text x="' + (p.x + q.x) / 2 + '" y="' + ((p.y + q.y) / 2 - 6) + '">' + esc(a.label) + '</text>' : "") + '</g>';
+  });
+  $("arrows").innerHTML = out;
+}
+function drawClaims(){
+  $("claims").innerHTML = liveClaims(ui.boardId).map(function(c){
+    var r = c.target.rect;
+    if (!r){ var bs = c.target.elementIds.map(function(id){ return cur.els[id]; }).filter(Boolean); if (!bs.length) return ""; var b = boundsOf(bs); r = {x:b.x - 10, y:b.y - 10, w:b.w + 20, h:b.h + 20}; }
+    return '<div class="claim" style="left:' + r.x + 'px;top:' + r.y + 'px;width:' + r.w + 'px;height:' + r.h + 'px"><span>' + esc(c.actor.name) + ' · ' + esc(c.note || "working") + '</span></div>';
+  }).join("");
+}
+function drawSelBar(){
+  var s = ui.sel.map(function(id){ return cur.els[id]; }), h = "";
+  if (s.length && !ui.editing){
+    if (s.some(function(e){ return e.type === "note" || e.type === "shape"; })) h += COLORS.map(function(c){ return '<button class="sw6 c-' + c + '" data-color="' + c + '" aria-label="' + c + '"></button>'; }).join("");
+    if (s.length === 1 && s[0].type === "shape") h += '<select data-f="kind" aria-label="Shape">' + KINDS.map(function(k){ return '<option' + (k === s[0].kind ? " selected" : "") + '>' + k + '</option>'; }).join("") + '</select>';
+    if (s.length === 1 && s[0].type === "text") h += '<select data-f="size" aria-label="Size">' + SIZES.map(function(k){ return '<option' + (k === s[0].size ? " selected" : "") + '>' + k + '</option>'; }).join("") + '</select>';
+    if (s.length === 1) h += '<button class="btn sm" data-act="edit">' + (s[0].type === "arrow" ? "Label" : "Edit") + '</button>';
+    h += '<button class="btn sm" data-act="front" title="Bring to front">Front</button><button class="btn sm" data-act="back" title="Send to back">Back</button>';
+    h += '<button class="btn sm danger" data-act="del">Delete</button>';
+    if (s.length > 1) h += '<span class="muted" style="font-size:13px;white-space:nowrap">' + s.length + ' selected</span>';
+  }
+  $("selbar").innerHTML = h;
+  // Keep the bar off the thing it acts on: if the selection sits low in the view, the bar moves to the top.
+  var low = false;
+  if (h){ var vh = $("vp").getBoundingClientRect().height; s.forEach(function(e){ if (e.type === "arrow") return; var bx = boxNow(e); if ((bx.y + bx.h) * ui.zoom + ui.py > vh - 150) low = true; }); }
+  $("selbar").classList.toggle("top", low);
+}
+function onSelBar(e){
+  var t = e.target;
+  if (e.type === "change" && t.dataset.f){ var d = {}; d[t.dataset.f] = t.value; act([{k:"update", id:ui.sel[0], data:d}]); return; }
+  if (e.type !== "click") return;
+  t = t.closest("button"); if (!t) return;
+  if (t.dataset.color){ var ops = ui.sel.filter(function(id){ var x = cur.els[id]; return x.type === "note" || x.type === "shape"; }).map(function(id){ return {k:"update", id:id, data:{color:t.dataset.color}}; }); act(ops); }
+  else if (t.dataset.act === "del") delSel();
+  else if (t.dataset.act === "front" || t.dataset.act === "back"){
+    var ro = sess("POST", "/boards/" + ui.boardId + "/ops", {ops:[{op:"restack", ids:ui.sel.slice(), to:t.dataset.act}]});
+    if (ro.status !== 200) toast(ro.body.error.message); refresh();
+  }
+  else if (t.dataset.act === "edit"){ var el = cur.els[ui.sel[0]]; if (el.type === "arrow") labelModal(el); else startEdit(el.id); }
+}
+function labelModal(a){
+  modal('<h2>Arrow label</h2><label for="al">Label</label><input type="text" id="al" maxlength="60" value="' + esc(a.label || "") + '"><div class="acts"><button class="btn" id="cno">Cancel</button><button class="btn pri" id="cyes">Save</button></div>');
+  $("cno").onclick = closeModal; $("cyes").onclick = function(){ var v = $("al").value; closeModal(); act([{k:"update", id:a.id, data:{label:v}}]); };
+}
+function delSel(){
+  if (!ui.sel.length) return;
+  var gone = ui.sel.filter(function(id){ return cur.els[id].type !== "arrow"; });
+  var arrows = ui.sel.filter(function(id){ var a = cur.els[id]; return a.type === "arrow" && gone.indexOf(a.from) < 0 && gone.indexOf(a.to) < 0; });
+  ui.sel = []; act(gone.concat(arrows).map(function(id){ return {k:"delete", id:id}; }));
+}
+// Send a change as one ops batch; return the inverse so it can be undone.
+function runDesc(desc){
+  loadCur();
+  var pre = cur.els, ops = [], missing = false;
+  desc.forEach(function(d){
+    if (d.k === "create"){ ops.push({op:"create", id:d.id, data:d.data}); return; }
+    var el = pre[d.id]; if (!el){ missing = true; return; }
+    ops.push(d.k === "update" ? {op:"update", id:d.id, ifVersion:el.version, data:d.data} : {op:"delete", id:d.id, ifVersion:el.version});
+  });
+  if (missing){ toast("That element was changed or removed by someone else."); return null; }
+  if (!ops.length) return null;
+  var r = sess("POST", "/boards/" + ui.boardId + "/ops", {ops:ops});
+  if (r.status !== 200){ toast(r.body.error.message); return null; }
+  var inv = [];
+  r.body.results.forEach(function(res, i){
+    var d = desc[i];
+    if (!d || d.k === "delete"){ var o = clone(pre[res.id]); ["id","version","createdBy","updatedBy","updatedAt"].forEach(function(k){ delete o[k]; }); inv.push({k:"create", id:res.id, data:o}); }
+    else if (d.k === "create") inv.push({k:"delete", id:res.id});
+    else { var old = {}; Object.keys(d.data).forEach(function(k){ old[k] = pre[d.id][k] === undefined ? "" : pre[d.id][k]; }); inv.push({k:"update", id:d.id, data:old}); }
+  });
+  return {res:r.body, inv:inv.reverse()};
+}
+function act(desc){ var o = runDesc(desc); if (o){ ui.undo.push(o.inv); ui.redo = []; } refresh(); return o; }
+function undo(){ var d = ui.undo.pop(); if (!d) return; var o = runDesc(d); if (o) ui.redo.push(o.inv); ui.sel = []; refresh(); }
+function redo(){ var d = ui.redo.pop(); if (!d) return; var o = runDesc(d); if (o) ui.undo.push(o.inv); ui.sel = []; refresh(); }
+
+function startEdit(id){
+  var n = node(id); if (!n) return;
+  var t = n.querySelector(".txt");
+  ui.editing = id; ui.busy = true; n.classList.add("editing"); t.contentEditable = "true"; t.focus();
+  var r = document.createRange(); r.selectNodeContents(t); var s = getSelection(); s.removeAllRanges(); s.addRange(r);
+  t.onkeydown = function(e){ e.stopPropagation(); if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); commitEdit(); } if (e.key === "Escape"){ ui.editing = null; ui.busy = false; refresh(); } };
+  t.onblur = function(){ setTimeout(function(){ if (ui.editing === id) commitEdit(); }, 0); };
+  drawSelBar();
+}
+function commitEdit(){
+  var id = ui.editing; if (!id) return;
+  var n = node(id), text = n ? n.querySelector(".txt").innerText.replace(/\n+$/, "") : null;
+  ui.editing = null; ui.busy = false; ui.pending = false;
+  if (text != null && cur.els[id] && !text.trim() && cur.els[id].type === "text"){ ui.sel = []; act([{k:"delete", id:id}]); }
+  else if (text != null && cur.els[id] && text.trim() && text !== cur.els[id].text) act([{k:"update", id:id, data:{text:text}}]); else refresh();
+}
+function pt(e){ var r = $("vp").getBoundingClientRect(); return {x:(e.clientX - r.left - ui.px) / ui.zoom, y:(e.clientY - r.top - ui.py) / ui.zoom, cx:e.clientX - r.left, cy:e.clientY - r.top}; }
+function endGesture(){ gest = null; ui.busy = !!ui.editing; if (ui.pending && !ui.busy){ ui.pending = false; refresh(); } }
+function onDown(e){
+  if (ui.editing){ if (e.target.closest(".editing")) return; commitEdit(); }
+  $("vp").setPointerCapture(e.pointerId);
+  ptrs[e.pointerId] = {x:e.clientX, y:e.clientY};
+  var ids = Object.keys(ptrs);
+  if (ids.length === 2){
+    var a = ptrs[ids[0]], b = ptrs[ids[1]], r = $("vp").getBoundingClientRect();
+    if (gest && gest.moved && (gest.type === "move" || gest.type === "resize")){ gest = null; drawSurface(); }
+    gest = {type:"pinch", d:Math.hypot(a.x - b.x, a.y - b.y) || 1, z:ui.zoom, mx:(a.x + b.x) / 2 - r.left, my:(a.y + b.y) / 2 - r.top, px:ui.px, py:ui.py};
+    ui.busy = true; return;
+  }
+  var t = e.target.closest("[data-id]"), id = t ? t.dataset.id : null, el = id ? cur.els[id] : null;
+  gest = {type:"pan", sx:e.clientX, sy:e.clientY, moved:false, id:id, shift:e.shiftKey || e.ctrlKey || e.metaKey, px:ui.px, py:ui.py, over:{}};
+  ui.busy = true;
+  if (ui.tool !== "select") return;
+  if (!id && e.pointerType === "mouse" && e.button === 0 && !ui.space){ gest.type = "marquee"; gest.p0 = pt(e); return; }
+  if (e.target.classList.contains("rh")){ gest.type = "resize"; gest.id = ui.sel[0]; gest.el = cur.els[ui.sel[0]]; return; }
+  if (el && el.type !== "arrow"){
+    if (ui.sel.indexOf(id) < 0 && !gest.shift){ ui.sel = [id]; drawSurface(); }
+    var set = (ui.sel.indexOf(id) >= 0 ? ui.sel : [id]).filter(function(x){ return cur.els[x].type !== "arrow"; });
+    gest.type = "move"; gest.items = set.map(function(x){ return {id:x, x:cur.els[x].x, y:cur.els[x].y, n:node(x)}; });
+  }
+}
+function onMove(e){
+  if (!ptrs[e.pointerId] || !gest) return;
+  ptrs[e.pointerId] = {x:e.clientX, y:e.clientY};
+  if (gest.type === "pinch"){
+    var ids = Object.keys(ptrs); if (ids.length < 2) return;
+    var a = ptrs[ids[0]], b = ptrs[ids[1]], z = Math.max(.25, Math.min(2, gest.z * Math.hypot(a.x - b.x, a.y - b.y) / gest.d));
+    ui.px = gest.mx - (gest.mx - gest.px) / gest.z * z; ui.py = gest.my - (gest.my - gest.py) / gest.z * z; ui.zoom = z; applyT(); return;
+  }
+  var dx = e.clientX - gest.sx, dy = e.clientY - gest.sy;
+  if (!gest.moved && Math.abs(dx) + Math.abs(dy) < 6) return;
+  gest.moved = true;
+  if (gest.type === "pan"){ ui.px = gest.px + dx; ui.py = gest.py + dy; applyT(); }
+  else if (gest.type === "marquee"){
+    var q = pt(e), mq = $("marq"); mq.classList.remove("hide");
+    mq.style.left = Math.min(gest.p0.cx, q.cx) + "px"; mq.style.top = Math.min(gest.p0.cy, q.cy) + "px"; mq.style.width = Math.abs(q.cx - gest.p0.cx) + "px"; mq.style.height = Math.abs(q.cy - gest.p0.cy) + "px";
+  }
+  else if (gest.type === "move"){
+    gest.items.forEach(function(it){ var x = Math.round(it.x + dx / ui.zoom), y = Math.round(it.y + dy / ui.zoom); gest.over[it.id] = {x:x, y:y}; if (it.n){ it.n.style.left = x + "px"; it.n.style.top = y + "px"; } });
+    drawArrows();
+  } else if (gest.type === "resize"){
+    var w = Math.max(60, Math.round(gest.el.w + dx / ui.zoom)), h = Math.max(40, Math.round(gest.el.h + dy / ui.zoom)), n = node(gest.id);
+    gest.over[gest.id] = {w:w, h:h}; if (n){ n.style.width = w + "px"; n.style[gest.el.type === "note" ? "minHeight" : "height"] = h + "px"; }
+    drawArrows();
+  }
+}
+function onUp(e){
+  if (!ptrs[e.pointerId]) return;
+  delete ptrs[e.pointerId];
+  var g = gest; if (!g) return;
+  if (g.type === "pinch"){ if (Object.keys(ptrs).length === 0) endGesture(); return; }
+  gest = null; ui.busy = false;
+  if (e.type === "pointercancel"){ ui.pending = false; refresh(); return; }
+  if (g.moved){
+    if (g.type === "move") act(g.items.map(function(it){ return {k:"update", id:it.id, data:g.over[it.id]}; }));
+    else if (g.type === "resize") act([{k:"update", id:g.id, data:g.over[g.id]}]);
+    else if (g.type === "marquee"){
+      var q = pt(e), x1 = Math.min(g.p0.x, q.x), x2 = Math.max(g.p0.x, q.x), y1 = Math.min(g.p0.y, q.y), y2 = Math.max(g.p0.y, q.y);
+      var hit = cur.order.filter(function(k){ var el = cur.els[k]; if (el.type === "arrow") return false; var bx = boxNow(el); return bx.x < x2 && bx.x + bx.w > x1 && bx.y < y2 && bx.y + bx.h > y1; });
+      ui.sel = g.shift ? ui.sel.concat(hit.filter(function(k){ return ui.sel.indexOf(k) < 0; })) : hit;
+      $("marq").classList.add("hide"); ui.pending = false; refresh();
+    }
+    else if (ui.pending){ ui.pending = false; refresh(); }
+    return;
+  }
+  // a tap
+  var id = g.id, p = pt(e), nowT = Date.now();
+  if (ui.tool === "select"){
+    if (!id) ui.sel = [];
+    else if (g.shift){ var i = ui.sel.indexOf(id); if (i >= 0) ui.sel.splice(i, 1); else ui.sel.push(id); }
+    else {
+      ui.sel = [id];
+      if (lastTap.id === id && nowT - lastTap.t < 400 && cur.els[id].type !== "arrow"){ lastTap = {id:null, t:0}; ui.pending = false; drawSurface(); startEdit(id); return; }
+      lastTap = {id:id, t:nowT};
+    }
+    ui.pending = false; refresh(); return;
+  }
+  if (ui.tool === "hand"){ if (ui.pending){ ui.pending = false; refresh(); } return; }
+  if (ui.tool === "arrow"){
+    var el = id && cur.els[id];
+    if (!el || el.type === "arrow"){ ui.arrowFrom = null; ui.tool = "select"; refresh(); return; }
+    if (!ui.arrowFrom){ ui.arrowFrom = id; ui.sel = [id]; toast("Now tap the element it points to"); refresh(); return; }
+    if (ui.arrowFrom === id) return;
+    var from = ui.arrowFrom; ui.arrowFrom = null; ui.tool = "select";
+    var o = act([{k:"create", data:{type:"arrow", from:from, to:id}}]); if (o){ ui.sel = [o.res.results[0].id]; refresh(); }
+    return;
+  }
+  var data = {note:{type:"note", w:200, h:100, color:"yellow", text:"New note"}, shape:{type:"shape", w:170, h:100, kind:"rounded", color:"blue", text:"Shape"}, text:{type:"text", text:"Text", size:"large"}}[ui.tool];
+  data.x = Math.round(p.x - (data.w || 40) / 2); data.y = Math.round(p.y - (data.h || 30) / 2);
+  ui.tool = "select";
+  var made = act([{k:"create", data:data}]);
+  if (made){ ui.sel = [made.res.results[0].id]; drawSurface(); startEdit(ui.sel[0]); }
+}
+function onWheel(e){
+  e.preventDefault();
+  if (e.ctrlKey || e.metaKey){ var p = pt(e); zoomAt(p.cx, p.cy, ui.zoom * (e.deltaY < 0 ? 1.1 : 0.9)); }
+  else { ui.px -= e.deltaX; ui.py -= e.deltaY; applyT(); }
+}
+document.addEventListener("keyup", function(e){ if (e.key === " ") ui.space = false; });
+document.addEventListener("keydown", function(e){
+  if (ui.top !== "board" || ui.editing || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || $("modal").innerHTML) return;
+  if (e.key === "Delete" || e.key === "Backspace"){ e.preventDefault(); delSel(); }
+  else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z"){ e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
+  else if (e.key === "Escape"){ ui.sel = []; ui.tool = "select"; ui.arrowFrom = null; refresh(); }
+  else if (e.key === " "){ e.preventDefault(); ui.space = true; }
+  else if (!e.ctrlKey && !e.metaKey && !e.altKey && {v:"select", h:"hand", t:"text", n:"note", s:"shape", a:"arrow"}[e.key.toLowerCase()]){ ui.tool = {v:"select", h:"hand", t:"text", n:"note", s:"shape", a:"arrow"}[e.key.toLowerCase()]; ui.arrowFrom = null; drawTools(); }
+  else if (/^Arrow/.test(e.key) && ui.sel.length){
+    e.preventDefault();
+    var st = e.shiftKey ? 1 : 10, mx = e.key === "ArrowLeft" ? -st : e.key === "ArrowRight" ? st : 0, my = e.key === "ArrowUp" ? -st : e.key === "ArrowDown" ? st : 0;
+    act(ui.sel.filter(function(id){ return cur.els[id].type !== "arrow"; }).map(function(id){ return {k:"update", id:id, data:{x:cur.els[id].x + mx, y:cur.els[id].y + my}}; }));
+  }
+  else if (e.key === "Tab"){
+    var seq = cur.order.filter(function(id){ return cur.els[id].type !== "arrow"; }).sort(function(a, b){ return cur.els[a].y - cur.els[b].y || cur.els[a].x - cur.els[b].x; });
+    if (!seq.length) return;
+    e.preventDefault();
+    ui.sel = [seq[(seq.indexOf(ui.sel[0]) + (e.shiftKey ? -1 : 1) + seq.length) % seq.length]]; refresh();
+  }
+  else if (e.key === "Enter" && ui.sel.length === 1 && cur.els[ui.sel[0]].type !== "arrow"){ e.preventDefault(); startEdit(ui.sel[0]); }
+});
+function evHtml(e, showBoard){
+  var bd = db.boards[e.boardId], live = bd && !bd.deletedAt, bt = live && (bd.batches || []).filter(function(x){ return x.seq === e.seq; })[0];
+  return '<div class="ev">' + av(e.actor) + '<div class="grow"><b>' + esc(e.actor.name) + '</b> ' + esc(e.summary) + '<small>' +
+    (showBoard ? (live ? '<a href="#/board/' + e.boardId + '">' + esc(bd.title) + '</a>' : esc(e.boardTitle) + ' (in the trash)') + ' · ' : "") + ago(e.at) + '</small></div>' +
+    (!showBoard && e.actor.kind === "agent" && e.revertible && bt && !bt.revertedBy ? '<button class="btn sm" data-undo="' + e.seq + '" title="Undo this change">Undo</button>' : "") + '</div>';
+}
+function callsHtml(n){ return calls.slice(0, n).map(function(c){ return '<div class="call"><b class="' + (c.status < 300 ? "okc" : "bad") + '">' + c.status + '</b><span title="' + esc(c.who + ": " + c.line) + '">' + esc(c.who.split(" ")[0]) + ' ' + esc(c.line) + (c.code ? " (" + c.code + ")" : "") + '</span></div>'; }).join("") || '<p class="muted" style="font-size:13px;margin:4px 0">No agent calls yet. Tap "Agent" and ask for something.</p>'; }
+function drawPanel(){
+  var p = $("panel"); if (!p) return;
+  var list = db.activity.filter(function(e){ return e.boardId === ui.boardId; }).slice(0, 12);
+  p.innerHTML = '<button class="btn sm pclose" id="pcl" aria-label="Close panel">✕</button><h3>Agent API calls</h3>' + callsHtml(8) + '<h3 style="margin-top:16px">Activity on this board</h3>' + (list.map(function(e){ return evHtml(e, false); }).join("") || '<p class="muted">Nothing yet.</p>');
+  p.onclick = function(ev){
+    if (ev.target.closest("#pcl")){ ui.panel = false; p.classList.add("hide"); drawBar(); return; }
+    var u = ev.target.closest("[data-undo]"); if (!u) return;
+    var r = sess("POST", "/boards/" + ui.boardId + "/batches/" + u.dataset.undo + "/revert");
+    toast(r.status === 200 ? "Change undone" : r.body.error.message); refresh();
+  };
+}
+// Bring some elements into view and select them, so a person can see what an agent changed.
+function focusOn(ids){
+  loadCur();
+  ids = ids.filter(function(id){ return cur.els[id] && cur.els[id].type !== "arrow"; });
+  if (!ids.length){ toast("Those elements are no longer on the board."); return; }
+  var r = $("vp").getBoundingClientRect(), b = boundsOf(ids.map(function(id){ return cur.els[id]; }));
+  var z = Math.max(.3, Math.min(1, (r.width - 80) / b.w, (r.height - 200) / b.h));
+  ui.zoom = z; ui.px = (r.width - b.w * z) / 2 - b.x * z; ui.py = Math.max(60, (r.height - 110 - b.h * z) / 2) - b.y * z;
+  ui.sel = ids; ui.tool = "select"; refresh();
+}
+// ---------- Agent chat (floating, above the toolbar) ----------
+function capsLine(a){
+  var w = a.scopes.indexOf("boards:write") >= 0, ext = (a.mcpServers || []).map(function(s){ return s.name; });
+  return "Can use: board tools over MCP (" + (w ? "read and write" : "read only") + ")" + ((a.capabilities || []).indexOf("knowledge") >= 0 ? " · knowledge search (RAG)" : "") + (ext.length ? " · external MCP: " + ext.join(", ") : "") + (a.instructions ? " · its instructions (prompt)" : "") + ". Runs on: " + (a.runner.kind === "webhook" ? "its own harness, by webhook" : "the built-in runner") + ".";
+}
+function chatShell(){
+  var c = $("chat"); if (!c) return;
+  c.classList.toggle("hide", !chat.open);
+  var ab = document.querySelector('#tools [data-act="agent"]'); if (ab) ab.classList.toggle("on", chat.open);
+  if (!chat.open) return;
+  var agents = db.agents.filter(function(a){ return a.status === "active" && (!a.boardIds || a.boardIds.indexOf(ui.boardId) >= 0); });
+  if (!agents.some(function(a){ return a.id === chat.agentId; })) chat.agentId = agents[0] ? agents[0].id : null;
+  if (!agents.length){
+    c.innerHTML = '<div class="ch"><b class="grow">No agent can work on this board</b><button class="btn sm" id="ccl" aria-label="Close">✕</button></div><div class="log"><p class="muted" style="margin:0">Connect an agent, or give one access to this board, on the <a href="#/agents">Agents</a> screen.</p></div>';
+    $("ccl").onclick = function(){ chat.open = false; chatShell(); }; return;
+  }
+  c.innerHTML = '<div class="ch"><span class="av agent">' + ICON.agents + '</span><select id="cag" aria-label="Agent">' + agents.map(function(a){ return '<option value="' + a.id + '"' + (a.id === chat.agentId ? " selected" : "") + '>' + esc(a.name) + '</option>'; }).join("") + '</select><button class="btn sm" id="ccl" aria-label="Close">✕</button></div>' +
+    '<div class="cap" id="ccap"></div><div class="log" id="clog"></div><div class="chips" id="cchips">' +
+    ["Brainstorm 4 ideas about onboarding", "What questions are we missing about pricing?", "Propose next steps", "Summarize the board", "Tidy the layout"].map(function(t){ return '<button class="chip">' + t + '</button>'; }).join("") + '</div>' +
+    '<form class="cin" id="cform"><input type="text" id="cin" placeholder="Ask the agent to do something on this board" autocomplete="off" maxlength="300"><button class="btn agentb" id="csend">Send</button></form>';
+  var cap = function(){ $("ccap").textContent = capsLine(db.agents.filter(function(a){ return a.id === chat.agentId; })[0]); };
+  cap();
+  $("ccl").onclick = function(){ chat.open = false; chatShell(); };
+  $("cag").onchange = function(){ chat.agentId = $("cag").value; cap(); };
+  var send = function(text){
+    var r = sess("POST", "/boards/" + ui.boardId + "/runs", {agentId:chat.agentId, message:text});
+    if (r.status !== 202) toast(r.body.error.message);
+    drawChatLog();
+  };
+  $("cchips").onclick = function(e){ var b = e.target.closest(".chip"); if (b && !activeRun(ui.boardId)) send(b.textContent); };
+  $("cform").onsubmit = function(e){
+    e.preventDefault();
+    var live = activeRun(ui.boardId);
+    if (live){ sess("POST", "/runs/" + live.id + "/cancel"); toast("Stopped"); refresh(); return; }
+    var v = $("cin").value; if (!v.trim()) return;
+    $("cin").value = ""; send(v);
+  };
+  drawChatLog();
+}
+function drawChatLog(){
+  var l = $("clog"); if (!l) return;
+  var MARK = {running:"…", done:"✓", failed:"✕", skipped:"–"}, runs = db.runs.filter(function(r){ return r.boardId === ui.boardId; }).slice(-20);
+  l.innerHTML = runs.map(function(r){
+    var ag = db.agents.filter(function(a){ return a.id === r.agentId; })[0] || {name:"Agent"};
+    return '<div class="msg u">' + esc(r.message) + '</div><div class="msg a"><b>' + esc(ag.name) + '</b>' + (r.status === "queued" ? ' <span class="muted">queued</span>' : "") +
+      r.steps.map(function(s){ return '<div class="stp ' + s.status + '"><span class="st">' + MARK[s.status] + '</span><span class="k ' + s.kind + '">' + s.kind.toUpperCase() + '</span><span><b>' + esc(s.name) + '</b>' + (s.note ? " · " + esc(s.note) : "") + '</span></div>'; }).join("") +
+      (r.reply ? '<div class="reply">' + esc(r.reply) + '</div>' : "") + (r.error ? '<div class="reply bad">I could not finish. ' + esc(r.error.message) + '</div>' : "") + (r.status === "cancelled" ? '<div class="reply muted">Stopped before finishing.</div>' : "") +
+      (r.batches && r.batches.length && r.status !== "running" && r.status !== "queued" ? '<div class="racts"><button class="btn sm" data-show="' + r.id + '">Show on board</button>' + (r.reverted ? '<span class="muted" style="font-size:13px">Changes undone</span>' : '<button class="btn sm" data-revert="' + r.id + '">Undo changes</button>') + '</div>' : "") + '</div>';
+  }).join("") || '<p class="muted" style="margin:0;font-size:13.5px">Say what you want in plain words. The agent reads the board, plans, then uses the tools it has.</p>';
+  l.scrollTop = l.scrollHeight;
+  l.onclick = function(ev){
+    var sh = ev.target.closest("[data-show]"), rv = ev.target.closest("[data-revert]");
+    if (sh){ var run = findRun(sh.dataset.show); if (window.innerWidth < 760){ chat.open = false; chatShell(); } focusOn(run.touched || []); }
+    if (rv){ var r = sess("POST", "/runs/" + rv.dataset.revert + "/revert"); toast(r.status === 200 ? "The agent's changes were undone" : r.body.error.message); refresh(); }
+  };
+  var live = activeRun(ui.boardId), b = $("csend"); if (b) b.textContent = live ? "Stop" : "Send";
+  var ch = $("cchips"); if (ch) ch.style.display = runs.length ? "none" : "";
+}
+
+// ---------- Agents ----------
+function vAgents(v){
+  var agents = sess("GET", "/agents").body.items;
+  v.innerHTML = '<div class="head"><div class="grow"><h1>Agents</h1><p>Any agent or harness with a key can read and write boards.</p></div><button class="btn pri" id="conn">Connect agent</button></div>' +
+    '<div class="card tw"><table class="agt"><thead><tr><th>Name</th><th>Harness</th><th>Scopes</th><th>Capabilities</th><th>Key</th><th>Last seen</th><th>Status</th><th></th></tr></thead><tbody>' +
+    (agents.map(function(a){
+      return '<tr><td style="white-space:nowrap"><span class="av agent">' + esc(a.name[0]) + '</span> <b>' + esc(a.name) + '</b></td><td>' + esc(a.harness) + '</td><td style="white-space:nowrap">' +
+        a.scopes.map(function(s){ return '<span class="tag">' + s.replace("boards:", "") + '</span>'; }).join(" ") + (a.boardIds ? ' <span class="tag" title="Limited to chosen boards">' + a.boardIds.length + ' board' + (a.boardIds.length === 1 ? "" : "s") + '</span>' : "") + '</td><td style="white-space:nowrap"><span class="tag">MCP</span>' + (a.capabilities.indexOf("knowledge") >= 0 ? ' <span class="tag">RAG</span>' : "") + (a.instructions ? ' <span class="tag" title="' + esc(a.instructions) + '">Prompt</span>' : "") + a.mcpServers.map(function(x){ return ' <span class="tag" title="External MCP server">' + esc(x.name) + '</span>'; }).join("") + (a.runner.kind === "webhook" ? ' <span class="tag" title="' + esc(a.runner.url) + '">webhook</span>' : "") + '</td><td><code>' + esc(a.keyPrefix) + '…</code></td><td class="muted" style="white-space:nowrap">' + ago(a.lastSeenAt) + '</td><td><span class="tag ' + (a.status === "active" ? "ok" : "off") + '">' + a.status + '</span></td><td style="white-space:nowrap">' +
+        '<button class="btn sm" data-ed="' + a.id + '">Edit</button> <button class="btn sm" data-rot="' + a.id + '">' + (a.status === "active" ? "Rotate key" : "New key") + '</button> ' + (a.status === "active" ? '<button class="btn sm danger" data-rev="' + a.id + '">Revoke</button>' : "") + '</td></tr>';
+    }).join("") || '<tr><td colspan="8" class="muted">No agents yet.</td></tr>') + '</tbody></table></div>';
+  $("conn").onclick = function(){ connectModal(); };
+  v.querySelectorAll("[data-ed]").forEach(function(el){ el.onclick = function(){ connectModal(agents.filter(function(a){ return a.id === el.dataset.ed; })[0]); }; });
+  v.querySelectorAll("[data-rev]").forEach(function(el){ el.onclick = function(){ confirmM("Revoke this key?", "The agent will get 403 forbidden on every call until you issue a new key.", "Revoke", function(){ sess("DELETE", "/agents/" + el.dataset.rev); toast("Key revoked"); vAgents(v); }); }; });
+  v.querySelectorAll("[data-rot]").forEach(function(el){ el.onclick = function(){ confirmM("Issue a new key?", "The old key stops working at once.", "Issue key", function(){ var r = sess("POST", "/agents/" + el.dataset.rot + "/rotate-key"); keyModal(r.body.agent, r.body.key); }); }; });
+}
+function connectModal(ex){
+  var w = !ex || ex.scopes.indexOf("boards:write") >= 0, k = !ex || ex.capabilities.indexOf("knowledge") >= 0, hook = !!ex && ex.runner.kind === "webhook";
+  var has = function(n){ return !!ex && ex.mcpServers.some(function(x){ return x.name === n; }); };
+  modal('<h2>' + (ex ? "Edit " + esc(ex.name) : "Connect an agent") + '</h2><p class="muted" style="margin:0">' + (ex ? "Change what this agent may use." : "Create a key for one agent or harness and choose what it may use.") + '</p>' +
+    '<label for="an">Name</label><input type="text" id="an" maxlength="60" placeholder="e.g. Reviewer agent" value="' + esc(ex ? ex.name : "") + '">' +
+    (ex ? "" : '<label for="ah">Harness</label><select class="f" id="ah"><option>claude-code</option><option>langgraph</option><option>openai-agents</option><option>custom</option></select>') +
+    '<label>Capabilities</label><div style="display:grid;gap:6px"><span><input type="checkbox" checked disabled> Board tools over MCP: read</span><span><input type="checkbox" id="sw"' + (w ? " checked" : "") + '> Board tools over MCP: write</span><span><input type="checkbox" id="sk"' + (k ? " checked" : "") + '> Knowledge search (RAG)</span>' +
+    Object.keys(MCP_DEMO).map(function(n){ return '<span><input type="checkbox" data-srv="' + n + '"' + (has(n) ? " checked" : "") + '> External MCP server: ' + esc(MCP_DEMO[n].title) + ' <span class="muted">(' + esc(MCP_DEMO[n].about) + '; simulated)</span></span>'; }).join("") + '</div>' +
+    '<label for="ab">Board access</label><select class="f" id="ab"><option value="all">All boards</option><option value="some"' + (ex && ex.boardIds ? " selected" : "") + '>Only the boards ticked below</option></select>' +
+    '<div id="abl" style="display:' + (ex && ex.boardIds ? "grid" : "none") + ';gap:6px;margin-top:8px">' + db.boardOrder.filter(function(id){ return !db.boards[id].deletedAt; }).map(function(id){ return '<span><input type="checkbox" data-bid="' + id + '"' + (ex && ex.boardIds && ex.boardIds.indexOf(id) >= 0 ? " checked" : "") + '> ' + esc(db.boards[id].title) + '</span>'; }).join("") + '</div>' +
+    '<label for="ai">Instructions (prompt)</label><textarea id="ai" maxlength="2000" style="min-height:70px" placeholder="How this agent should behave">' + esc(ex ? ex.instructions : "") + '</textarea>' +
+    '<label for="ar">Who runs chat requests</label><select class="f" id="ar"><option value="builtin">Built-in runner</option><option value="webhook"' + (hook ? " selected" : "") + '>The agent\'s own harness, by webhook</option></select>' +
+    '<div id="aub"' + (hook ? "" : ' style="display:none"') + '><label for="au">Webhook URL</label><input type="text" id="au" placeholder="https://…" value="' + esc(hook ? ex.runner.url : "") + '"><div class="muted" style="font-size:12.5px;margin-top:4px">In this prototype the harness behind the URL is simulated in the page.</div></div>' +
+    '<div class="acts"><button class="btn" id="cno">Cancel</button><button class="btn pri" id="cyes">' + (ex ? "Save" : "Create key") + '</button></div>');
+  $("ab").onchange = function(){ $("abl").style.display = $("ab").value === "some" ? "grid" : "none"; };
+  $("ar").onchange = function(){ $("aub").style.display = $("ar").value === "webhook" ? "" : "none"; };
+  $("cno").onclick = closeModal;
+  $("cyes").onclick = function(){
+    var servers = []; document.querySelectorAll("#modal [data-srv]").forEach(function(c){ if (c.checked) servers.push({name:c.dataset.srv, url:MCP_DEMO[c.dataset.srv].url}); });
+    var bids = null; if ($("ab").value === "some"){ bids = []; document.querySelectorAll("#modal [data-bid]").forEach(function(c){ if (c.checked) bids.push(c.dataset.bid); }); }
+    var body = {boardIds:bids, name:$("an").value, scopes:$("sw").checked ? ["boards:read","boards:write"] : ["boards:read"], capabilities:$("sk").checked ? ["knowledge"] : [], instructions:$("ai").value, mcpServers:servers, runner:$("ar").value === "webhook" ? {kind:"webhook", url:$("au").value.trim()} : {kind:"builtin"}};
+    if (!ex) body.harness = $("ah").value;
+    var r = ex ? sess("PATCH", "/agents/" + ex.id, body) : sess("POST", "/agents", body);
+    if (r.status >= 300){ toast(r.body.error.message); return; }
+    if (ex){ closeModal(); toast("Saved"); vAgents($("view")); } else keyModal(r.body.agent, r.body.key);
+  };
+}
+function keyModal(agent, key){
+  modal('<h2>Key for ' + esc(agent.name) + '</h2><pre id="kv">' + esc(key) + '</pre><div class="warn">Shown once. This key only works inside this prototype page.</div>' +
+    '<label>Try it</label><pre>curl https://YOUR_HOST/api/v1/boards \\\n  -H "Authorization: Bearer ' + esc(key.slice(0, 11)) + '…"</pre>' +
+    '<label>MCP client config</label><pre>{ "mcpServers": { "agentboard": {\n    "url": "https://YOUR_HOST/mcp",\n    "headers": { "Authorization": "Bearer &lt;key&gt;" } } } }</pre>' +
+    '<div class="acts"><button class="btn" id="kc">Copy key</button><button class="btn pri" id="cno">Done</button></div>');
+  $("kc").onclick = function(){ try { navigator.clipboard.writeText(key).then(function(){ toast("Copied"); }, function(){ toast("Copy is blocked here; select the key by hand."); }); } catch (e) { toast("Copy is blocked here; select the key by hand."); } };
+  $("cno").onclick = function(){ closeModal(); if (ui.top === "agents") vAgents($("view")); };
+}
+
+// ---------- Activity ----------
+function vActivity(v){
+  var all = sess("GET", "/activity").body.items, boards = sess("GET", "/boards").body.items;
+  var list = all.filter(function(e){ return (ui.filter === "all" || (ui.filter === "agents") === (e.actor.kind === "agent")) && (!ui.bfilter || e.boardId === ui.bfilter); });
+  v.innerHTML = '<div class="head"><div class="grow"><h1>Activity</h1><p>Every change, by people and agents, across all boards.</p></div>' +
+    [["all","All"],["people","People"],["agents","Agents"]].map(function(f){ return '<button class="btn sm' + (ui.filter === f[0] ? " on" : "") + '" data-f="' + f[0] + '">' + f[1] + '</button>'; }).join("") +
+    '<select class="f" id="bf" style="width:auto;padding:5px 8px" aria-label="Board"><option value="">All boards</option>' + boards.map(function(b){ return '<option value="' + b.id + '"' + (ui.bfilter === b.id ? " selected" : "") + '>' + esc(b.title) + '</option>'; }).join("") + '</select></div>' +
+    '<div class="card" style="padding:4px 18px">' + (list.map(function(e){ return evHtml(e, true); }).join("") || '<p class="muted">Nothing matches.</p>') + '</div>';
+  v.querySelectorAll("[data-f]").forEach(function(el){ el.onclick = function(){ ui.filter = el.dataset.f; vActivity(v); }; });
+  $("bf").onchange = function(){ ui.bfilter = $("bf").value; vActivity(v); };
+}
+
+// ---------- Developers ----------
+function presets(){
+  var b = db.boards[db.boardOrder.filter(function(id){ return !db.boards[id].deletedAt; })[0]], p = b ? "/boards/" + b.id : "/boards/BOARD_ID";
+  var notes = b ? b.order.map(function(id){ return b.els[id]; }).filter(function(e){ return e.type === "note"; }) : [];
+  var n = notes[0] || {id:"ELEMENT_ID", version:1}, human = notes.filter(function(e){ return e.createdBy.kind === "user"; })[0] || n;
+  return [
+    ["Who am I", "GET", "/me", null],
+    ["List boards", "GET", "/boards", null],
+    ["Read a board as text (digest)", "GET", p + "/digest", null],
+    ["Read a board as JSON", "GET", p + "/elements", null],
+    ["Search knowledge (RAG)", "GET", "/knowledge/search?q=onboarding", null],
+    ["MCP tool: read_board", "MCP", "read_board", {boardId:b ? b.id : "BOARD_ID"}],
+    ["MCP tool: search_knowledge", "MCP", "search_knowledge", {query:"onboarding"}],
+    ["MCP tool: get_guide", "MCP", "get_guide", {}],
+    ["Start an agent run (as you)", "POST", p + "/runs", {agentId:db.agents[0] ? db.agents[0].id : "AGENT_ID", message:"Add 2 ideas about pricing"}],
+    ["Claim an area", "POST", p + "/claims", {target:{rect:{x:40, y:480, w:300, h:120}}, note:"Trying the console"}],
+    ["Create a note", "POST", p + "/ops", {ops:[{op:"create", data:{type:"note", x:50, y:490, w:280, h:92, color:"pink", text:"Written from the API console"}}]}],
+    ["Update with a stale version (conflict)", "POST", p + "/ops", {ops:[{op:"update", id:n.id, ifVersion:n.version - 1, data:{text:"This will be refused"}}]}],
+    ["Delete a person's note (delete rule)", "POST", p + "/ops", {ops:[{op:"delete", id:human.id, ifVersion:human.version}]}]
+  ];
+}
+function vDevelopers(v){
+  var P = presets();
+  v.innerHTML = '<div class="head"><div class="grow"><h1>Developers</h1><p>Three ways in: REST, WebSocket, and MCP. All use the same key.</p></div></div>' +
+    '<div class="card sect"><h2>API console</h2><p>Send a real request to the in-page backend as yourself or as any agent.</p>' +
+    '<label for="cw">Act as</label><select class="f" id="cw"><option value="session">You (session cookie)</option>' + db.agents.map(function(a){ return '<option value="' + a.id + '">' + esc(a.name) + ' — ' + a.scopes.map(function(s){ return s.replace("boards:", ""); }).join(" + ") + (a.status === "active" ? "" : ", revoked") + '</option>'; }).join("") + '<option value="bad">An invalid key</option></select>' +
+    '<label for="cp">Example</label><select class="f" id="cp">' + P.map(function(p, i){ return '<option value="' + i + '">' + p[0] + '</option>'; }).join("") + '</select>' +
+    '<div class="cgrid"><div><label for="cpath">Path, or MCP tool name</label><input type="text" id="cpath"></div><div><label for="cm">Method</label><select class="f" id="cm"><option>GET</option><option>POST</option><option>PATCH</option><option>DELETE</option><option>MCP</option></select></div></div>' +
+    '<label for="cik">Idempotency-Key (optional, for POST /ops)</label><input type="text" id="cik" placeholder="16 to 128 characters">' +
+    '<label for="cb">Body (JSON)</label><textarea class="mono" id="cb" spellcheck="false"></textarea>' +
+    '<div class="acts" style="justify-content:flex-start;margin-top:10px"><button class="btn pri" id="cs">Send</button></div><pre id="cr">Response appears here.</pre></div>' +
+    '<div class="card sect"><h2>Recent agent calls</h2><div id="calls"></div></div>' +
+    '<div class="card sect"><h2>The agent loop</h2><p>Read, claim, write one atomic batch, release. On <code>version_conflict</code>, read again and retry.</p><pre>GET    /api/v1/boards/{id}/digest          # compact text for the model\nPOST   /api/v1/boards/{id}/claims          # { target, note } shows where you work\nPOST   /api/v1/boards/{id}/ops             # { ops: [create | update | delete] }\nDELETE /api/v1/boards/{id}/claims/{claimId}</pre></div>' +
+    '<div class="card sect"><h2>MCP tools</h2><p>Connect any MCP client to <code>/mcp</code>.</p><div class="tw"><table><tbody>' +
+    [["list_boards","Boards the key can see"],["read_board","Digest (default) or full JSON"],["write_board","Apply a batch of operations"],["create_board","Start a new board"],["claim / release_claim","Show and clear a working area"],["search_knowledge","Passages from workspace documents (needs the knowledge capability)"],["get_guide","How to lay out a board well"]].map(function(r){ return '<tr><td><code>' + r[0] + '</code></td><td class="muted">' + r[1] + '</td></tr>'; }).join("") + '</tbody></table></div></div>' +
+    '<div class="card sect"><h2>Errors and limits</h2><p><code>unauthorized</code> 401 · <code>forbidden</code> 403 · <code>not_found</code> 404 · <code>version_conflict</code> 409 · <code>claim_required</code> 409 · <code>run_in_progress</code> 409 · <code>rate_limited</code> 429 · <code>validation_failed</code> 422 · <code>limit_exceeded</code> 422. Limits: 800 elements per board, 50 operations per batch, 4,000 characters per element, claims last 60 seconds.</p></div>';
+  var fill = function(){ var p = presets()[$("cp").value]; $("cm").value = p[1]; $("cpath").value = (p[1] === "MCP" ? "" : "/api/v1") + p[2]; $("cb").value = p[3] ? JSON.stringify(p[3], null, 2) : ""; };
+  $("cp").onchange = fill; fill(); drawCalls();
+  $("cs").onclick = function(){
+    var body = null, who = $("cw").value, key = who === "session" ? "session" : who === "bad" ? "ab_live_not_a_real_key" : db.agents.filter(function(a){ return a.id === who; })[0].key;
+    if ($("cb").value.trim()){ try { body = JSON.parse($("cb").value); } catch (e) { $("cr").textContent = "The body is not valid JSON: " + e.message; return; } }
+    var meth = $("cm").value, target = $("cpath").value.trim(), ik = $("cik").value.trim(), r;
+    if (meth !== "MCP") r = api(key, meth, target, body, ik ? {"Idempotency-Key":ik} : null);
+    else if (key === "session") r = {status:401, body:{error:{code:"unauthorized", message:"MCP needs an agent API key. Pick an agent under “Act as”."}}};
+    else r = mcp(key, target, body || {});
+    save(); if (key === "session") drawCalls();
+    $("cr").textContent = "HTTP " + r.status + "\n" + (r.body == null ? "(no body)" : JSON.stringify(r.body, null, 2));
+  };
+}
+function drawCalls(){ var c = $("calls"); if (c) c.innerHTML = callsHtml(12); }
+
+// ---------- Settings ----------
+function vSettings(v){
+  var s = sess("GET", "/settings").body;
+  v.innerHTML = '<div class="head"><div class="grow"><h1>Settings</h1></div></div>' +
+    '<div class="card sect"><h2>Workspace</h2><label for="wn">Name</label><input type="text" id="wn" maxlength="120" value="' + esc(s.name) + '" style="max-width:360px"></div>' +
+    '<div class="card sect"><h2>Agent safety</h2><p>Changes save immediately and apply to the next agent call.</p>' +
+    '<div class="row"><div class="grow"><b>Agents can delete other people\'s elements</b><div class="muted">Off: an agent can remove only what it created.</div></div><button class="sw" role="switch" aria-checked="' + s.agentsCanDeleteOthersElements + '" data-k="agentsCanDeleteOthersElements" aria-label="Agents can delete others\' elements"></button></div>' +
+    '<div class="row"><div class="grow"><b>Require a claim before an agent writes</b><div class="muted">On: a write outside the agent\'s own claim is refused with claim_required.</div></div><button class="sw" role="switch" aria-checked="' + s.requireClaimBeforeAgentWrite + '" data-k="requireClaimBeforeAgentWrite" aria-label="Require a claim before agent writes"></button></div></div>' +
+    '<div class="card sect"><h2>Knowledge</h2><p>Documents that agents with the knowledge capability can search (RAG). In this prototype the search is keyword matching, not embeddings.</p>' +
+    sess("GET", "/knowledge").body.items.map(function(d){ return '<div class="row"><div class="grow"><b>' + esc(d.title) + '</b><div class="muted" style="font-size:13px">' + esc(d.text.slice(0, 110)) + (d.text.length > 110 ? "…" : "") + '</div></div><button class="btn sm danger" data-kd="' + d.id + '">Remove</button></div>'; }).join("") +
+    '<label for="kt">Add a document</label><input type="text" id="kt" maxlength="120" placeholder="Title"><textarea id="kx" style="min-height:80px;margin-top:8px" placeholder="Paste text the agents may draw on"></textarea><div class="acts" style="justify-content:flex-start;margin-top:10px"><button class="btn" id="ka">Add document</button></div></div>' +
+    '<div class="card sect"><h2>Account</h2><div class="row">' + av(ME) + '<div class="grow"><b>' + esc(db.user.name) + '</b><div class="muted">' + esc(db.user.email) + '</div></div><button class="btn" id="so">Sign out</button></div></div>' +
+    '<div class="card sect"><h2>Prototype data</h2><p>Boards, agents and settings are kept in this browser where storage is allowed.</p><div class="acts" style="justify-content:flex-start"><button class="btn danger" id="rs">Reset demo data</button></div></div>';
+  $("wn").onchange = function(){ var r = sess("PATCH", "/settings", {name:$("wn").value}); toast(r.status === 200 ? "Saved" : r.body.error.message); };
+  v.querySelectorAll(".sw").forEach(function(el){ el.onclick = function(){ var d = {}; d[el.dataset.k] = el.getAttribute("aria-checked") !== "true"; var r = sess("PATCH", "/settings", d); el.setAttribute("aria-checked", r.body[el.dataset.k]); toast("Saved"); }; });
+  $("so").onclick = function(){ api("session", "POST", "/auth/logout"); save(); chat.open = false; route(); };
+  $("ka").onclick = function(){ var r = sess("POST", "/knowledge", {title:$("kt").value, text:$("kx").value}); if (r.status !== 201){ toast(r.body.error.message); return; } toast("Document added"); vSettings(v); };
+  v.querySelectorAll("[data-kd]").forEach(function(el){ el.onclick = function(){ sess("DELETE", "/knowledge/" + el.dataset.kd); toast("Document removed"); vSettings(v); }; });
+  $("rs").onclick = function(){ confirmM("Reset demo data?", "All boards, agents and settings in this prototype go back to the starting state.", "Reset", function(){ calls = []; chat.agentId = null; ui.undo = []; ui.redo = []; ui.boardId = null; seed(); toast("Demo data reset"); vSettings(v); }); };
+}
+
+ui.path = hashPath() || "boards";
+$("ctb").onclick = contractModal;
+route();
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "api",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ../../tsconfig.json",
+    "test": "cd ../.. && vitest run tests/api.test.ts tests/service.test.ts tests/runner.test.ts tests/security.test.ts tests/integrations.test.ts tests/drawing.test.ts tests/render.test.ts tests/integration-agent.test.ts tests/openai-provider.test.ts tests/embed.test.ts tests/drawing-refusal.test.ts",
+    "dev": "tsx watch src/main.ts"
+  }
+}

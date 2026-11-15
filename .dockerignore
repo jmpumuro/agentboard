@@ -1,0 +1,15 @@
+node_modules
+dist
+.data
+.git
+reports
+agentboard-kit
+test-results
+playwright-report
+coverage
+blob-report
+.nyc_output
+.web-build-*
+server.mjs
+.env
+.env.*

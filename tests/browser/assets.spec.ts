@@ -1,0 +1,20 @@
+import { test, expect } from '@playwright/test';
+import { STARTER_SCENE } from 'contract';
+import { E2E_ORIGIN } from './environment';
+import { login } from './helpers';
+test('missing chunks return 404 and an old tab recovers its lazy 3D view once', async ({ page }) => {
+    const missing = await page.request.get('/assets/Scene3DView-missing.js');
+    expect(missing.status()).toBe(404); expect(missing.headers()['content-type']).not.toContain('html');
+    await login(page);
+    const headers = { Origin: E2E_ORIGIN };
+    const board = await (await page.request.post('/api/v1/boards', { headers, data: { title: 'Lazy view recovery' } })).json();
+    const created = await page.request.post(`/api/v1/boards/${board.id}/ops`, { headers, data: { ops: [{ op: 'create', id: 'model', data: { ...STARTER_SCENE, x: 100, y: 100 } }] } });
+    expect(created.ok()).toBe(true);
+    let requests = 0;
+    await page.route('**/assets/Scene3DView-*.js', route => ++requests === 1 ? route.fulfill({ status: 404, contentType: 'text/plain', body: 'Old chunk no longer available' }) : route.continue());
+    await page.goto('/boards/' + board.id, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.scene3d-live canvas')).toHaveCount(1, { timeout: 15000 });
+    expect(requests).toBe(2);
+    expect(await page.evaluate(() => sessionStorage.getItem('agentboard.module-reload'))).toBeTruthy();
+    await expect(page.locator('.scene3d-module-error')).toHaveCount(0);
+});

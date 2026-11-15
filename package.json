@@ -1,0 +1,60 @@
+{
+  "name": "agentboard",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env --import tsx apps/api/src/main.ts",
+    "build": "node --import tsx scripts/build-web.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "verify": "npm run typecheck && npm run contract:generate && npm test && npm run build",
+    "contract:generate": "node --import tsx packages/contract/generate.ts",
+    "seed": "node --env-file-if-exists=.env --import tsx scripts/seed.ts",
+    "reset-password": "node --env-file-if-exists=.env --import tsx scripts/reset-password.ts",
+    "setup:integration-agent": "node --env-file-if-exists=.env --import tsx scripts/setup-integration-agent.ts",
+    "test:openai": "node --env-file-if-exists=.env --import tsx scripts/test-openai-integration.ts",
+    "test:openai:3d": "node --env-file-if-exists=.env --import tsx scripts/test-openai-3d.ts",
+    "test:full": "node --env-file-if-exists=.env --import tsx scripts/full-e2e.ts",
+    "restart": "node --env-file-if-exists=.env --import tsx scripts/restart-dev.ts",
+    "test:live": "node --env-file-if-exists=.env --import tsx scripts/full-e2e.ts --live-only"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "0.1.100",
+    "@node-rs/argon2": "2.2.2",
+    "@tanstack/react-query": "5.105.0",
+    "contract": "file:packages/contract",
+    "jsdom": "25.0.1",
+    "lucide-react": "1.63.0",
+    "pg": "8.23.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-router": "8.5.1",
+    "three": "0.187.0",
+    "ws": "8.22.0",
+    "zod": "4.6.5",
+    "zustand": "4.5.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0",
+    "@types/jsdom": "30.0.0",
+    "@types/node": "26.6.5",
+    "@types/pg": "8.23.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/three": "0.187.0",
+    "@types/ws": "8.18.2",
+    "@vitejs/plugin-react": "6.1.2",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vite": "8.3.5",
+    "vitest": "5.0.5"
+  }
+}

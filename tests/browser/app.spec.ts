@@ -1,0 +1,44 @@
+import { AUTH_STATE, E2E_ORIGIN } from './environment';
+import { test, expect, request } from '@playwright/test';
+test.use({ storageState: { cookies: [], origins: [] } });
+test('signup, every destination, board editing and trash restore', async ({ page }, info) => {
+    const owner = await request.newContext({ baseURL: E2E_ORIGIN, storageState: AUTH_STATE });
+    const email = `browser-${info.project.name}@example.com`, password = 'test-password-123';
+    const invitation = await (await owner.post('/api/v1/auth/invites', { headers: { Origin: E2E_ORIGIN }, data: { email, role: 'owner' } })).json();
+    await owner.dispose();
+    const token = new URL(invitation.inviteUrl).searchParams.get('invite');
+    await page.goto('/signup?invite=' + token);
+    await page.getByLabel('Your name').fill('Browser Tester');
+    await page.getByLabel('Email address').fill(email);
+    await page.getByLabel('Password', { exact: true }).fill(password);
+    await page.getByRole('button', { name: 'Create workspace' }).click();
+    await expect(page.getByRole('heading', { name: 'A place to think together.' })).toBeVisible();
+    for (const [name, heading] of [['Agents', 'A few extra perspectives.'], ['Activity', 'See the thinking unfold.'], ['Developers', 'Your agents. Your tools.'], ['Settings', 'Your workspace, your way.'], ['Boards', 'A place to think together.']]) {
+        await page.locator('nav').getByRole('link', { name, exact: true }).click();
+        await expect(page.getByRole('heading', { name: heading })).toBeVisible();
+    }
+    await page.getByRole('button', { name: 'New board', exact: true }).click();
+    const title = `Browser flow ${info.project.name}`;
+    await page.getByLabel('Board title').fill(title);
+    await page.getByLabel('Board title').press('Enter');
+    await page.getByRole('button', { name: 'Note tool', exact: true }).click();
+    await page.locator('.canvas').click({ position: { x: 140, y: 180 } });
+    await page.getByLabel('Element text').fill('A human thought');
+    await page.getByLabel('Element text').press('ControlOrMeta+Enter');
+    await expect(page.getByText('A human thought', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Color blue' }).click();
+    await expect(page.locator('.element.note.blue')).toBeVisible();
+    await page.getByRole('button', { name: 'Ask an agent' }).click();
+    await expect(page.getByRole('button', { name: 'Return to tools' })).toBeVisible();
+    await page.getByRole('button', { name: 'Return to tools' }).click();
+    await page.getByRole('button', { name: 'Delete selected elements' }).click();
+    await expect(page.locator('.element.note')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Undo (⌘Z)' }).click();
+    await expect(page.getByText('A human thought', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Back to boards', exact: true }).click();
+    await page.getByRole('button', { name: 'Delete ' + title, exact: true }).click();
+    await page.getByRole('button', { name: 'Trash', exact: true }).click();
+    const card = page.locator('.board-card').filter({ hasText: title });
+    await card.getByRole('button', { name: 'Restore' }).click();
+    await expect(card).toHaveCount(0);
+});
