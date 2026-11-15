@@ -740,6 +740,7 @@ export async function createPostgresStore(url: string, options?: PostgresStoreOp
 export function listenBoardOps(url: string, handlers: {
     onNotify: (boardId: string) => void;
     onReconnect: () => void;
+    applicationName?: string;
 }) {
     let stopped = false;
     let attempt = 0;
@@ -763,7 +764,7 @@ export function listenBoardOps(url: string, handlers: {
         let ready = false;
         try {
             const { Client } = await import('pg');
-            client = new Client({ connectionString: url, connectionTimeoutMillis: 5000, application_name: 'agentboard-board-ops' });
+            client = new Client({ connectionString: url, connectionTimeoutMillis: 5000, application_name: handlers.applicationName || 'agentboard-board-ops' });
             current = client;
             const lost = () => {
                 if (!ready || stopped || current !== client)

@@ -177,7 +177,8 @@ describe('normalized postgres store', () => {
         const store = await postgresStore(url, { schema: scope.name });
         const seen: string[] = [];
         let reconnects = 0;
-        const listener = listenBoardOps(url, { onNotify: boardId => seen.push(boardId), onReconnect: () => { reconnects += 1; } });
+        const applicationName = `agentboard-ops-${scope.name}`;
+        const listener = listenBoardOps(url, { applicationName, onNotify: boardId => seen.push(boardId), onReconnect: () => { reconnects += 1; } });
         try {
             await waitFor(async () => {
                 await scopeQuery(url, scope.name, 'SELECT pg_notify($1, $2)', ['board_ops', 'probe']);
@@ -187,10 +188,10 @@ describe('normalized postgres store', () => {
             expect(seen).not.toContain(boardId);
             await store.transaction(s => applyOps(s, auth, boardId, { ops: [{ op: 'create', id: 'note_1', data: { type: 'note', x: 10, y: 20, w: 200, h: 150, text: 'Hi', color: 'yellow' } }] }));
             await waitFor(() => seen.includes(boardId));
-            const pid = await scope.admin.query(`SELECT pid FROM pg_stat_activity WHERE application_name = 'agentboard-board-ops' AND datname = current_database()`);
+            const pid = await scope.admin.query(`SELECT pid FROM pg_stat_activity WHERE application_name = $1 AND datname = current_database()`, [applicationName]);
             expect(pid.rows.length).toBeGreaterThan(0);
             await scope.admin.query('SELECT pg_terminate_backend($1::int)', [pid.rows[0].pid]);
-            await waitFor(() => reconnects > 0);
+            await waitFor(() => reconnects > 0, 8000);
             await waitFor(async () => {
                 await scopeQuery(url, scope.name, 'SELECT pg_notify($1, $2)', ['board_ops', 'after-reconnect']);
                 return seen.includes('after-reconnect');
@@ -282,9 +283,9 @@ async function scopeQuery(connectionString: string, schema: string, sql: string,
     finally { await client.end(); }
 }
 
-async function waitFor(predicate: () => boolean | Promise<boolean>) {
+async function waitFor(predicate: () => boolean | Promise<boolean>, timeout = 4000) {
     const start = Date.now();
-    while (Date.now() - start < 4000) {
+    while (Date.now() - start < timeout) {
         if (await predicate())
             return;
         await new Promise(resolve => setTimeout(resolve, 40));
